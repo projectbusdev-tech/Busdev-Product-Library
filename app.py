@@ -224,25 +224,31 @@ def main():
     # --- PARAMETER BARU: MULTIPLE CHECKBOXES DALAM EXPANDER ---
     st.sidebar.markdown("---")
     
-    # Filter Obstacle
-    st.sidebar.subheader("Obstacle Selection")
-    obstacle_options = get_uniques('Obstacle_List')
+   # Filter Obstacle
+    obs_list = get_uniques('Obstacle_List')
     selected_obstacles = []
-    with st.sidebar.expander("Select Obstacles", expanded=False):
-        for obs in obstacle_options:
-            is_checked = obs in st.session_state.filter_params.get('filter_obstacle', [])
-            if st.checkbox(obs, value=is_checked, key=f"chk_obs_{obs}_{st.session_state.form_key}"):
-                selected_obstacles.append(obs)
+    st.sidebar.subheader("Obstacle Selection")
+    if obs_list:
+        with st.sidebar.expander(f"Select Obstacles ({len(obs_list)})", expanded=False):
+            for obs in obs_list:
+                is_checked = obs in st.session_state.filter_params.get('filter_obstacle', [])
+                if st.checkbox(obs, value=is_checked, key=f"chk_obs_{obs}_{st.session_state.form_key}"):
+                    selected_obstacles.append(obs)
+    else:
+        st.sidebar.info("No Obstacle data found in dataset.")
 
     # Filter Waste Type
-    st.sidebar.subheader("Waste Type Selection")
-    waste_options = get_uniques('Waste_Type_List')
+    wst_list = get_uniques('Waste_Type_List')
     selected_wastes = []
-    with st.sidebar.expander("Select Waste Types", expanded=False):
-        for wST in waste_options:
-            is_checked_w = wST in st.session_state.filter_params.get('filter_waste', [])
-            if st.checkbox(wST, value=is_checked_w, key=f"chk_wst_{wST}_{st.session_state.form_key}"):
-                selected_wastes.append(wST)
+    st.sidebar.subheader("Waste Type Selection")
+    if wst_list:
+        with st.sidebar.expander(f"Select Waste Types ({len(wst_list)})", expanded=False):
+            for wST in wst_list:
+                is_checked_w = wST in st.session_state.filter_params.get('filter_waste', [])
+                if st.checkbox(wST, value=is_checked_w, key=f"chk_wst_{wST}_{st.session_state.form_key}"):
+                    selected_wastes.append(wST)
+    else:
+        st.sidebar.info("No Waste Type data found in dataset.")
 
     # Simpan ke session state
     st.session_state.filter_params = {
