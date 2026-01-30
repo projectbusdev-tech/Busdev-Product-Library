@@ -89,7 +89,7 @@ def get_image_path(filename):
 def show_detail(row):
     brand = row['Brand'] if not pd.isna(row['Brand']) else "-"
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
-    aisle_w = row.get('Aisle width', '-')
+    aisle_w = row.get('Aisle Width (mm)', '-')
     slope_val = row.get('Max.Slope (°)', '-')
 
     st.header(f"{brand} - {model}")
@@ -102,7 +102,7 @@ def show_detail(row):
         st.subheader("General Specifications")
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
         st.write(f"**Aisle Width:** :orange[**{aisle_w} mm**]")
-        st.write(f"**Max.Slope:** :red[**{slope_val}°**]")
+        st.write(f"**Max. Slope Capacity:** :red[**{slope_val}°**]")
         st.write(f"**Power Source:** {row.get('Power Source', '-')}")
         
     with col2:
@@ -124,15 +124,25 @@ def show_detail(row):
                 st.download_button(label="📄 Download Brochure", data=pdf_file, file_name=f"{spec_name}.pdf", mime="application/pdf")
 
         public_url = f"{GITHUB_RAW_BASE}static/brochures/{spec_name_encoded}.pdf" 
+        
+        # --- EMAIL & WA CONTENT OPTIMIZATION ---
+        subject_mail = f"Product Brochure: {brand} - {model}"
         share_msg = (
-            f"Product Info: {brand} - {model}\n"
-            f"Download Brochure: {public_url}"
+            f"Hello,\n\n"
+            f"Here are the product specification details:\n\n"
+            f"--- PRODUCT DETAILS ---\n"
+            f"Brand: {brand}\n"
+            f"Model: {model}\n"
+            f"You can download the full technical brochure via the link below:\n"
+            f"{public_url}\n\n"
+            f"Thank you.\n"
+            f"Sent from Product Library"
         )
         
         with col_wa:
             st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button wa-button">📲 WhatsApp</a>', unsafe_allow_html=True)
         with col_email:
-            st.markdown(f'<a href="mailto:?subject=Product Info&body={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button email-button">📧 Email</a>', unsafe_allow_html=True)
+            st.markdown(f'<a href="mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button email-button">📧 Email</a>', unsafe_allow_html=True)
     else:
         st.info("Digital brochure is not yet available.")
     
@@ -182,7 +192,6 @@ def main():
         key=f"loc_{st.session_state.form_key}"
     )
 
-    # 1. AISLE CATEGORY
     aisle_categories = get_uniques('Aisle Category')
     filter_aisle_cat = st.sidebar.multiselect(
         "Aisle Category", 
@@ -191,13 +200,13 @@ def main():
         key=f"aisle_cat_{st.session_state.form_key}"
     )
 
-    # 2. MAX SLOPE (UBAH KE MAKSIMAL)
+    # FILTER MAX SLOPE (Minimal Kapasitas)
     filter_slope = st.sidebar.number_input(
-        "Max.Slope (°)", # Label diperbarui
+        "Max.Slope (°)", 
         min_value=0, 
         step=1, 
         value=st.session_state.filter_params.get('filter_slope', 0),
-        help="Hanya tampilkan produk dengan kemampuan menanjak maksimal X derajat.",
+        help="Cari produk yang mampu menanjak minimal X derajat.",
         key=f"slope_{st.session_state.form_key}"
     )
     
@@ -230,37 +239,31 @@ def main():
     res = df.copy()
     params = st.session_state.filter_params
 
-    # Filter Brand
     if params['pilihan_produk'] == "Manual (Fiorentini)":
         res = res[res['Brand'].str.contains("Fiorentini", case=False, na=False)]
     elif params['pilihan_produk'] == "Autonomous (Gausium)":
         res = res[res['Brand'].str.contains("Gausium", case=False, na=False)]
         
-    # Filter Aisle Category
     if params['filter_aisle_cat']:
         res = res[res['Aisle Category'].isin(params['filter_aisle_cat'])]
 
-    # LOGIKA BARU: Filter Max Slope (Menampilkan yang <= input user)
+    # Logika Max Slope Minimal
     if params['filter_slope'] > 0:
         res['temp_slope'] = pd.to_numeric(res['Max.Slope (°)'], errors='coerce').fillna(0)
-        res = res[res['temp_slope'] <= params['filter_slope']]
+        res = res[res['temp_slope'] >= params['filter_slope']]
 
-    # Filter Type
     if params['filter_type']:
         res = res[res['Product_type'].isin(params['filter_type'])]
 
-    # Filter Area
     if params['filter_area'] > 0:
         res['Recommended Coverage Area_min'] = pd.to_numeric(res['Recommended Coverage Area_min'], errors='coerce')
         res['Recommended Coverage Area_max'] = pd.to_numeric(res['Recommended Coverage Area_max'], errors='coerce')
         res = res[(res['Recommended Coverage Area_min'] <= params['filter_area']) & (res['Recommended Coverage Area_max'].fillna(float('inf')) >= params['filter_area'])]
 
-    # Filter Location
     if params['filter_loc']:
         pattern = "|".join([re.escape(f) for f in params['filter_loc']])
         res = res[res['Processed_Locations'].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
 
-    # Filter Floor
     if params['filter_floor']:
         pattern = "|".join([re.escape(f) for f in params['filter_floor']])
         res = res[res['Floor_Type_List'].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
