@@ -125,18 +125,17 @@ def show_detail(row):
 
         public_url = f"{GITHUB_RAW_BASE}static/brochures/{spec_name_encoded}.pdf" 
         
-        # --- EMAIL & WA CONTENT OPTIMIZATION ---
-        subject_mail = f"Product Brochure: {brand} - {model}"
+        # English message content
+        subject_mail = f"Product Specifications: {brand} - {model}"
         share_msg = (
             f"Hello,\n\n"
-            f"Here are the product specification details:\n\n"
+            f"Here are the product specification details you reviewed through the Product Recommendation Library:\n\n"
             f"--- PRODUCT DETAILS ---\n"
             f"Brand: {brand}\n"
             f"Model: {model}\n"
             f"You can download the full technical brochure via the link below:\n"
             f"{public_url}\n\n"
             f"Thank you.\n"
-            f"Sent from Product Library"
         )
         
         with col_wa:
@@ -192,21 +191,19 @@ def main():
         key=f"loc_{st.session_state.form_key}"
     )
 
-    aisle_categories = get_uniques('Aisle Category')
     filter_aisle_cat = st.sidebar.multiselect(
         "Aisle Category", 
-        aisle_categories,
+        get_uniques('Aisle Category'),
         default=st.session_state.filter_params.get('filter_aisle_cat', []),
         key=f"aisle_cat_{st.session_state.form_key}"
     )
 
-    # FILTER MAX SLOPE (Minimal Kapasitas)
+    # Filter Slope dengan logika minimal kapasitas
     filter_slope = st.sidebar.number_input(
-        "Max.Slope (°)", 
-        min_value=0, 
-        step=1, 
+        "Min. Max.Slope Capacity (°)", 
+        min_value=0, step=1, 
         value=st.session_state.filter_params.get('filter_slope', 0),
-        help="Cari produk yang mampu menanjak minimal X derajat.",
+        help="Search for products capable of climbing at least X degrees.",
         key=f"slope_{st.session_state.form_key}"
     )
     
@@ -224,6 +221,29 @@ def main():
         key=f"floor_{st.session_state.form_key}"
     )
 
+    # --- PARAMETER BARU: MULTIPLE CHECKBOXES DALAM EXPANDER ---
+    st.sidebar.markdown("---")
+    
+    # Filter Obstacle
+    st.sidebar.subheader("Obstacle Selection")
+    obstacle_options = get_uniques('Obstacle_List')
+    selected_obstacles = []
+    with st.sidebar.expander("Select Obstacles", expanded=False):
+        for obs in obstacle_options:
+            is_checked = obs in st.session_state.filter_params.get('filter_obstacle', [])
+            if st.checkbox(obs, value=is_checked, key=f"chk_obs_{obs}_{st.session_state.form_key}"):
+                selected_obstacles.append(obs)
+
+    # Filter Waste Type
+    st.sidebar.subheader("Waste Type Selection")
+    waste_options = get_uniques('Waste_Type_List')
+    selected_wastes = []
+    with st.sidebar.expander("Select Waste Types", expanded=False):
+        for wST in waste_options:
+            is_checked_w = wST in st.session_state.filter_params.get('filter_waste', [])
+            if st.checkbox(wST, value=is_checked_w, key=f"chk_wst_{wST}_{st.session_state.form_key}"):
+                selected_wastes.append(wST)
+
     # Simpan ke session state
     st.session_state.filter_params = {
         'pilihan_produk': pilihan_produk,
@@ -232,7 +252,9 @@ def main():
         'filter_type': filter_type,
         'filter_loc': filter_loc,
         'filter_area': filter_area,
-        'filter_floor': filter_floor
+        'filter_floor': filter_floor,
+        'filter_obstacle': selected_obstacles,
+        'filter_waste': selected_wastes
     }
 
     # --- FILTERING LOGIC ---
@@ -247,7 +269,6 @@ def main():
     if params['filter_aisle_cat']:
         res = res[res['Aisle Category'].isin(params['filter_aisle_cat'])]
 
-    # Logika Max Slope Minimal
     if params['filter_slope'] > 0:
         res['temp_slope'] = pd.to_numeric(res['Max.Slope (°)'], errors='coerce').fillna(0)
         res = res[res['temp_slope'] >= params['filter_slope']]
@@ -267,6 +288,15 @@ def main():
     if params['filter_floor']:
         pattern = "|".join([re.escape(f) for f in params['filter_floor']])
         res = res[res['Floor_Type_List'].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
+
+    # Filter logic untuk Obstacle dan Waste Type
+    if params['filter_obstacle']:
+        pattern = "|".join([re.escape(f) for f in params['filter_obstacle']])
+        res = res[res['Obstacle_List'].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
+
+    if params['filter_waste']:
+        pattern = "|".join([re.escape(f) for f in params['filter_waste']])
+        res = res[res['Waste_Type_List'].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
 
     st.divider()
     st.subheader(f"Results: {len(res)} Products Found")
