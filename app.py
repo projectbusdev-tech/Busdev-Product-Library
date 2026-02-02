@@ -54,7 +54,7 @@ st.markdown("""
 
 # --- HELPER FUNCTIONS ---
 def get_actual_col(df, target_name):
-    """Mencari nama kolom asli di DataFrame (fleksibel terhadap spasi/underscore)."""
+    """Mencari nama kolom asli di DataFrame meskipun ada perbedaan spasi/underscore."""
     norm_target = re.sub(r'[\s_]+', '', target_name.lower())
     for col in df.columns:
         if re.sub(r'[\s_]+', '', col.lower()) == norm_target:
@@ -112,17 +112,14 @@ def show_comparison(base_row, full_df):
         max_selections=2
     )
     
-    # Parameter perbandingan
     comparison_cols = ['Floor_Type_List', 'Obstacle_List', 'Waste_Type_List']
     labels = ["Floor Type", "Obstacle", "Waste Type"]
     data = {"Parameter": labels}
     
-    # Produk Utama
     data[f"Current: {base_row['Brand']}"] = [
         clean_list_string(base_row.get(get_actual_col(full_df, col))) for col in comparison_cols
     ]
     
-    # Produk Pilihan
     for i, name in enumerate(selected_names):
         comp_row = other_products[other_products['Display_Name'] == name].iloc[0]
         data[f"Product {i+2}: {name}"] = [
@@ -141,8 +138,6 @@ def show_detail(row, full_df):
     brand = row['Brand'] if not pd.isna(row['Brand']) else "-"
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
     aisle_w = row.get('Aisle Width (mm)', '-')
-    
-    # Update referensi ke Max_Slope
     slope_val = row.get('Max_Slope', '-')
 
     col_title, col_comp = st.columns([3, 1])
@@ -162,7 +157,6 @@ def show_detail(row, full_df):
         st.subheader("General Specifications")
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
         st.write(f"**Aisle Width:** :orange[**{aisle_w} mm**]")
-        # Update tampilan detail
         st.write(f"**Max. Slope Capacity:** :red[**{slope_val}°**]")
         
     with col2:
@@ -209,13 +203,34 @@ def main():
         sorted(df['Product_type'].dropna().unique().tolist()) if 'Product_type' in df.columns else [], 
         key=f"type_{st.session_state.form_key}"
     )
+    
+    # Filter Application Location (KEMBALI DITAMBAHKAN)
+    filter_loc = st.sidebar.multiselect(
+        "Application Location", 
+        get_uniques('Processed_Locations'), 
+        key=f"loc_{st.session_state.form_key}"
+    )
 
-    # --- UPDATE FILTER SLOPE ---
+    # Filter Aisle Category (KEMBALI DITAMBAHKAN)
+    filter_aisle_cat = st.sidebar.multiselect(
+        "Aisle Category", 
+        get_uniques('Aisle Category'),
+        key=f"aisle_cat_{st.session_state.form_key}"
+    )
+
     filter_slope = st.sidebar.number_input(
-        "Max Slope (°)", 
+        "Min. Max Slope Capacity (°)", 
         min_value=0, step=1, 
         value=0,
         key=f"slope_{st.session_state.form_key}"
+    )
+    
+    # Filter Target Area (KEMBALI DITAMBAHKAN)
+    filter_area = st.sidebar.number_input(
+        "Target Area (sqm/h)", 
+        min_value=0, step=100, 
+        value=0,
+        key=f"area_{st.session_state.form_key}"
     )
     
     filter_floor = st.sidebar.multiselect(
@@ -254,12 +269,18 @@ def main():
 
     if filter_type:
         res = res[res['Product_type'].isin(filter_type)]
+    
+    if filter_aisle_cat:
+        res = res[res['Aisle Category'].isin(filter_aisle_cat)]
 
-    # UPDATE LOGIKA FILTER SLOPE
     if filter_slope > 0:
-        # Gunakan kolom baru Max_Slope
         res['temp_slope'] = pd.to_numeric(res['Max_Slope'], errors='coerce').fillna(0)
         res = res[res['temp_slope'] >= filter_slope]
+        
+    if filter_area > 0:
+        res['Recommended Coverage Area_min'] = pd.to_numeric(res['Recommended Coverage Area_min'], errors='coerce')
+        res['Recommended Coverage Area_max'] = pd.to_numeric(res['Recommended Coverage Area_max'], errors='coerce')
+        res = res[(res['Recommended Coverage Area_min'] <= filter_area) & (res['Recommended Coverage Area_max'].fillna(float('inf')) >= filter_area)]
 
     def apply_list_filter(dataframe, target_col, selected_vals):
         if not selected_vals: return dataframe
@@ -268,10 +289,12 @@ def main():
         pattern = "|".join([re.escape(str(v)) for v in selected_vals])
         return dataframe[dataframe[actual].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
 
+    res = apply_list_filter(res, 'Processed_Locations', filter_loc)
     res = apply_list_filter(res, 'Floor_Type_List', filter_floor)
     res = apply_list_filter(res, 'Obstacle_List', selected_obstacles)
     res = apply_list_filter(res, 'Waste_Type_List', selected_wastes)
 
+    # --- DISPLAY ---
     st.divider()
     st.subheader(f"Results: {len(res)} Products Found")
     
