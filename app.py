@@ -255,7 +255,7 @@ def main():
     )
 
     filter_slope = st.sidebar.number_input(
-        "Min. Max.Slope Capacity (°)", 
+        "Max.Slope (°)", 
         min_value=0, step=1, 
         value=st.session_state.filter_params.get('filter_slope', 0),
         key=f"slope_{st.session_state.form_key}"
@@ -320,7 +320,7 @@ def main():
         res = res[res['Aisle Category'].isin(params['filter_aisle_cat'])]
 
     if params['filter_slope'] > 0:
-        res['temp_slope'] = pd.to_numeric(res['Max.Slope (°)'], errors='coerce').fillna(0)
+        res['temp_slope'] = pd.to_numeric(res['Max_Slope'], errors='coerce').fillna(0)
         res = res[res['temp_slope'] >= params['filter_slope']]
 
     if params['filter_type']:
