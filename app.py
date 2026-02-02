@@ -146,7 +146,7 @@ def show_detail(row, full_df):
     brand = row['Brand'] if not pd.isna(row['Brand']) else "-"
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
     aisle_w = row.get('Aisle Width (mm)', '-')
-    slope_val = row.get('Max.Slope (°)', '-')
+    slope_val = row.get('Max_Slope', '-')
 
     col_title, col_comp = st.columns([3, 1])
     with col_title:
