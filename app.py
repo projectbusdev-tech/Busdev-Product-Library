@@ -186,11 +186,6 @@ def show_detail(row, full_df):
             st.markdown(f'<a href="mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button email-button">📧 Email</a>', unsafe_allow_html=True)
     else:
         st.info("Digital brochure is not yet available.")
-    
-    st.markdown("---")
-    if st.button("Close Details"):
-        handle_reset()
-        st.rerun()
 
 # --- MAIN APP ---
 def main():
