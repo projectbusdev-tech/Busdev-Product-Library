@@ -219,7 +219,7 @@ def main():
     filter_type = st.sidebar.multiselect("Product Type", sorted(df['Product_type'].dropna().unique().tolist()) if 'Product_type' in df.columns else [], key=f"type_{st.session_state.form_key}")
     filter_loc = st.sidebar.multiselect("Application Location", get_uniques('Processed_Locations'), key=f"loc_{st.session_state.form_key}")
     filter_aisle_cat = st.sidebar.multiselect("Aisle Category", get_uniques('Aisle Category'), key=f"aisle_{st.session_state.form_key}")
-    filter_slope = st.sidebar.number_input("Min. Max Slope Capacity (°)", min_value=0, step=1, key=f"slope_{st.session_state.form_key}")
+    filter_slope = st.sidebar.number_input("Max Slope (°)", min_value=0, step=1, key=f"slope_{st.session_state.form_key}")
     filter_area = st.sidebar.number_input("Target Area (sqm/h)", min_value=0, step=100, key=f"area_{st.session_state.form_key}")
     filter_floor = st.sidebar.multiselect("Floor Type", get_uniques('Floor_Type_List'), key=f"floor_{st.session_state.form_key}")
 
