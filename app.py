@@ -127,7 +127,6 @@ def show_comparison(base_row, full_df):
         ]
     
     st.table(pd.DataFrame(data).set_index("Parameter"))
-    
     if st.button("Close Comparison"):
         st.session_state.show_compare = False
         st.rerun()
@@ -138,7 +137,7 @@ def show_detail(row, full_df):
     brand = row['Brand'] if not pd.isna(row['Brand']) else "-"
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
     aisle_w = row.get('Aisle Width (mm)', '-')
-    slope_val = row.get('Max_Slope', '-')
+    slope_val = row.get('Max_Slope', '-') # Kolom Baru
 
     col_title, col_comp = st.columns([3, 1])
     with col_title:
@@ -165,7 +164,31 @@ def show_detail(row, full_df):
         st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
 
     st.markdown("---")
-    if st.button("Close"):
+    
+    # --- KEMBALIKAN TOMBOL DOWNLOAD & SHARE ---
+    spec_name = str(row.get('General Specifications', '')).strip()
+    found_path = os.path.join("static", "brochures", f"{spec_name}.pdf")
+    spec_name_encoded = urllib.parse.quote(spec_name)
+    
+    if os.path.exists(found_path):
+        col_dl, col_wa, col_email = st.columns(3) 
+        with col_dl:
+            with open(found_path, "rb") as pdf_file:
+                st.download_button(label="📄 Download Brochure", data=pdf_file, file_name=f"{spec_name}.pdf", mime="application/pdf")
+
+        public_url = f"{GITHUB_RAW_BASE}static/brochures/{spec_name_encoded}.pdf" 
+        subject_mail = f"Product Specs: {brand} - {model}"
+        share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
+        
+        with col_wa:
+            st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button wa-button">📲 WhatsApp</a>', unsafe_allow_html=True)
+        with col_email:
+            st.markdown(f'<a href="mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button email-button">📧 Email</a>', unsafe_allow_html=True)
+    else:
+        st.info("Digital brochure is not yet available.")
+    
+    st.markdown("---")
+    if st.button("Close Details"):
         handle_reset()
         st.rerun()
 
@@ -192,52 +215,13 @@ def main():
         st.session_state.form_key += 1
         st.rerun()
 
-    pilihan_produk = st.sidebar.radio(
-        "Brand / Category", 
-        ["All", "Manual (Fiorentini)", "Autonomous (Gausium)"],
-        key=f"radio_{st.session_state.form_key}"
-    )
-
-    filter_type = st.sidebar.multiselect(
-        "Product Type", 
-        sorted(df['Product_type'].dropna().unique().tolist()) if 'Product_type' in df.columns else [], 
-        key=f"type_{st.session_state.form_key}"
-    )
-    
-    # Filter Application Location (KEMBALI DITAMBAHKAN)
-    filter_loc = st.sidebar.multiselect(
-        "Application Location", 
-        get_uniques('Processed_Locations'), 
-        key=f"loc_{st.session_state.form_key}"
-    )
-
-    # Filter Aisle Category (KEMBALI DITAMBAHKAN)
-    filter_aisle_cat = st.sidebar.multiselect(
-        "Aisle Category", 
-        get_uniques('Aisle Category'),
-        key=f"aisle_cat_{st.session_state.form_key}"
-    )
-
-    filter_slope = st.sidebar.number_input(
-        "Min. Max Slope Capacity (°)", 
-        min_value=0, step=1, 
-        value=0,
-        key=f"slope_{st.session_state.form_key}"
-    )
-    
-    # Filter Target Area (KEMBALI DITAMBAHKAN)
-    filter_area = st.sidebar.number_input(
-        "Target Area (sqm/h)", 
-        min_value=0, step=100, 
-        value=0,
-        key=f"area_{st.session_state.form_key}"
-    )
-    
-    filter_floor = st.sidebar.multiselect(
-        "Floor Type", 
-        get_uniques('Floor_Type_List'), 
-        key=f"floor_{st.session_state.form_key}"
-    )
+    pilihan_produk = st.sidebar.radio("Brand / Category", ["All", "Manual (Fiorentini)", "Autonomous (Gausium)"], key=f"radio_{st.session_state.form_key}")
+    filter_type = st.sidebar.multiselect("Product Type", sorted(df['Product_type'].dropna().unique().tolist()) if 'Product_type' in df.columns else [], key=f"type_{st.session_state.form_key}")
+    filter_loc = st.sidebar.multiselect("Application Location", get_uniques('Processed_Locations'), key=f"loc_{st.session_state.form_key}")
+    filter_aisle_cat = st.sidebar.multiselect("Aisle Category", get_uniques('Aisle Category'), key=f"aisle_{st.session_state.form_key}")
+    filter_slope = st.sidebar.number_input("Min. Max Slope Capacity (°)", min_value=0, step=1, key=f"slope_{st.session_state.form_key}")
+    filter_area = st.sidebar.number_input("Target Area (sqm/h)", min_value=0, step=100, key=f"area_{st.session_state.form_key}")
+    filter_floor = st.sidebar.multiselect("Floor Type", get_uniques('Floor_Type_List'), key=f"floor_{st.session_state.form_key}")
 
     # Obstacle & Waste Selection
     st.sidebar.markdown("---")
@@ -261,22 +245,15 @@ def main():
 
     # --- FILTERING LOGIC ---
     res = df.copy()
-
     if pilihan_produk == "Manual (Fiorentini)":
         res = res[res['Brand'].str.contains("Fiorentini", case=False, na=False)]
     elif pilihan_produk == "Autonomous (Gausium)":
         res = res[res['Brand'].str.contains("Gausium", case=False, na=False)]
-
-    if filter_type:
-        res = res[res['Product_type'].isin(filter_type)]
-    
-    if filter_aisle_cat:
-        res = res[res['Aisle Category'].isin(filter_aisle_cat)]
-
+    if filter_type: res = res[res['Product_type'].isin(filter_type)]
+    if filter_aisle_cat: res = res[res['Aisle Category'].isin(filter_aisle_cat)]
     if filter_slope > 0:
         res['temp_slope'] = pd.to_numeric(res['Max_Slope'], errors='coerce').fillna(0)
         res = res[res['temp_slope'] >= filter_slope]
-        
     if filter_area > 0:
         res['Recommended Coverage Area_min'] = pd.to_numeric(res['Recommended Coverage Area_min'], errors='coerce')
         res['Recommended Coverage Area_max'] = pd.to_numeric(res['Recommended Coverage Area_max'], errors='coerce')
