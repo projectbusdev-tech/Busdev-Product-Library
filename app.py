@@ -112,21 +112,44 @@ def show_comparison(base_row, full_df):
         max_selections=2
     )
     
-    comparison_cols = ['Floor_Type_List', 'Obstacle_List', 'Waste_Type_List']
-    labels = ["Floor Type", "Obstacle", "Waste Type"]
-    data = {"Parameter": labels}
-    
-    data[f"Current: {base_row['Brand']}"] = [
-        clean_list_string(base_row.get(get_actual_col(full_df, col))) for col in comparison_cols
+    # Label untuk baris tabel perbandingan
+    labels = [
+        "Product Type", 
+        "Aisle Width", 
+        "Max Slope", 
+        "Net Weight", 
+        "Dimensions (L/W/H)", 
+        "Floor Type", 
+        "Obstacle", 
+        "Waste Type"
     ]
     
+    def extract_compare_data(row):
+        """Helper untuk mengambil data spesifik dari baris produk."""
+        dims = f"{row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm"
+        return [
+            row.get('Product_type', '-'),
+            f"{row.get('Aisle Width (mm)', '-')} mm",
+            f"{row.get('Max_Slope', '-')}°",
+            f"{row.get('Net Weight (kg)', '-')} Kg",
+            dims,
+            clean_list_string(row.get(get_actual_col(full_df, 'Floor_Type_List'))),
+            clean_list_string(row.get(get_actual_col(full_df, 'Obstacle_List'))),
+            clean_list_string(row.get(get_actual_col(full_df, 'Waste_Type_List')))
+        ]
+
+    data = {"Parameter": labels}
+    
+    # Masukkan data produk utama
+    data[f"Current: {base_row['Brand']}"] = extract_compare_data(base_row)
+    
+    # Masukkan data produk yang dipilih untuk dibandingkan
     for i, name in enumerate(selected_names):
         comp_row = other_products[other_products['Display_Name'] == name].iloc[0]
-        data[f"Product {i+2}: {name}"] = [
-            clean_list_string(comp_row.get(get_actual_col(full_df, col))) for col in comparison_cols
-        ]
+        data[f"Product {i+2}: {name}"] = extract_compare_data(comp_row)
     
     st.table(pd.DataFrame(data).set_index("Parameter"))
+    
     if st.button("Close Comparison"):
         st.session_state.show_compare = False
         st.rerun()
@@ -137,7 +160,7 @@ def show_detail(row, full_df):
     brand = row['Brand'] if not pd.isna(row['Brand']) else "-"
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
     aisle_w = row.get('Aisle Width (mm)', '-')
-    slope_val = row.get('Max_Slope', '-') # Kolom Baru
+    slope_val = row.get('Max_Slope', '-') 
 
     col_title, col_comp = st.columns([3, 1])
     with col_title:
@@ -156,7 +179,7 @@ def show_detail(row, full_df):
         st.subheader("General Specifications")
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
         st.write(f"**Aisle Width:** :orange[**{aisle_w} mm**]")
-        st.write(f"**Max. Slope Capacity:** :red[**{slope_val}°**]")
+        st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
         
     with col2:
         st.subheader("Dimensions & Weight")
