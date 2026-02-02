@@ -52,15 +52,31 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- HELPER FUNCTIONS ---
+def get_actual_col(df, target_name):
+    """Mencari nama kolom asli di DataFrame meskipun ada perbedaan spasi/underscore."""
+    norm_target = re.sub(r'[\s_]+', '', target_name.lower())
+    for col in df.columns:
+        if re.sub(r'[\s_]+', '', col.lower()) == norm_target:
+            return col
+    return None
+
+def clean_list_string(val):
+    """Membersihkan format list string ['A', 'B'] menjadi A, B."""
+    if pd.isna(val) or str(val).lower() == 'nan': return "-"
+    return str(val).replace("[", "").replace("]", "").replace("'", "").strip()
+
 # --- HANDLER LOGIC ---
 def handle_reset():
     st.session_state.show_dialog = False
+    st.session_state.show_compare = False
     st.session_state.detail_row = None
     st.session_state.filter_params = {} 
 
 def click_detail(row):
     st.session_state.detail_row = row
     st.session_state.show_dialog = True
+    st.session_state.show_compare = False
 
 # --- LOAD DATA FUNCTION ---
 @st.cache_data
@@ -84,15 +100,64 @@ def get_image_path(filename):
         return os.path.join(base_path, f"{clean_name}.png")
     return "https://via.placeholder.com/300x200?text=No+Image"
 
+# --- PRODUCT COMPARISON POPUP ---
+@st.dialog("Compare Product", width="large")
+def show_comparison(base_row, full_df):
+    st.write(f"Comparing: **{base_row['Brand']} - {base_row['Model Variations']}**")
+    
+    # Pilih produk lain untuk dibandingkan (max 2)
+    other_products = full_df[full_df['General Specifications'] != base_row['General Specifications']].copy()
+    other_products['Display_Name'] = other_products['Brand'] + " - " + other_products['Model Variations'].fillna("")
+    
+    selected_names = st.multiselect(
+        "Select up to 2 products to compare:", 
+        options=other_products['Display_Name'].unique(),
+        max_selections=2
+    )
+    
+    # Kolom yang akan dibanding
+    comparison_cols = ['Floor_Type_List', 'Obstacle_List', 'Waste_Type_List']
+    labels = ["Floor Type", "Obstacle", "Waste Type"]
+    
+    # Menyiapkan Data Tabel
+    data = {"Parameter": labels}
+    
+    # Data Produk Utama
+    data[f"Current: {base_row['Brand']}"] = [
+        clean_list_string(base_row.get(get_actual_col(full_df, col))) for col in comparison_cols
+    ]
+    
+    # Data Produk Pilihan
+    for i, name in enumerate(selected_names):
+        comp_row = other_products[other_products['Display_Name'] == name].iloc[0]
+        data[f"Product {i+2}: {name}"] = [
+            clean_list_string(comp_row.get(get_actual_col(full_df, col))) for col in comparison_cols
+        ]
+    
+    st.table(pd.DataFrame(data).set_index("Parameter"))
+    
+    if st.button("Close Comparison"):
+        st.session_state.show_compare = False
+        st.rerun()
+
 # --- PRODUCT DETAIL POPUP ---
 @st.dialog("Product Details", width="large")
-def show_detail(row):
+def show_detail(row, full_df):
     brand = row['Brand'] if not pd.isna(row['Brand']) else "-"
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
     aisle_w = row.get('Aisle Width (mm)', '-')
     slope_val = row.get('Max.Slope (°)', '-')
 
-    st.header(f"{brand} - {model}")
+    col_title, col_comp = st.columns([3, 1])
+    with col_title:
+        st.header(f"{brand} - {model}")
+    with col_comp:
+        # BUTTON COMPARE PRODUCT
+        if st.button("🔄 Compare Product", type="primary"):
+            st.session_state.compare_base = row
+            st.session_state.show_compare = True
+            st.rerun()
+
     img_path = get_image_path(row.get('General Specifications'))
     st.image(img_path, width=250) 
     
@@ -124,19 +189,8 @@ def show_detail(row):
                 st.download_button(label="📄 Download Brochure", data=pdf_file, file_name=f"{spec_name}.pdf", mime="application/pdf")
 
         public_url = f"{GITHUB_RAW_BASE}static/brochures/{spec_name_encoded}.pdf" 
-        
-        # English message content
-        subject_mail = f"Product Specifications: {brand} - {model}"
-        share_msg = (
-            f"Hello,\n\n"
-            f"Here are the product specification details you reviewed through the Product Recommendation Library:\n\n"
-            f"--- PRODUCT DETAILS ---\n"
-            f"Brand: {brand}\n"
-            f"Model: {model}\n"
-            f"You can download the full technical brochure via the link below:\n"
-            f"{public_url}\n\n"
-            f"Thank you.\n"
-        )
+        subject_mail = f"Product Specs: {brand} - {model}"
+        share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
         
         with col_wa:
             st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button wa-button">📲 WhatsApp</a>', unsafe_allow_html=True)
@@ -152,15 +206,17 @@ def show_detail(row):
 def main():
     if 'form_key' not in st.session_state: st.session_state.form_key = 0
     if 'show_dialog' not in st.session_state: st.session_state.show_dialog = False
+    if 'show_compare' not in st.session_state: st.session_state.show_compare = False
     if 'filter_params' not in st.session_state: st.session_state.filter_params = {}
 
     df = load_data()
 
-    def get_uniques(col):
-        if col in df.columns:
-            temp = df[col].dropna().astype(str).str.replace(r"[\[\]']", '', regex=True)
+    def get_uniques(col_name):
+        actual = get_actual_col(df, col_name)
+        if actual:
+            temp = df[actual].dropna().astype(str).str.replace(r"[\[\]']", '', regex=True)
             all_items = temp.str.split(',').explode().str.strip()
-            return sorted([i for i in all_items.unique() if i])
+            return sorted([i for i in all_items.unique() if i and i.lower() != 'nan'])
         return []
 
     # --- SIDEBAR FILTERS ---
@@ -179,7 +235,7 @@ def main():
 
     filter_type = st.sidebar.multiselect(
         "Product Type", 
-        sorted(df['Product_type'].dropna().unique().tolist()), 
+        sorted(df['Product_type'].dropna().unique().tolist()) if 'Product_type' in df.columns else [], 
         default=st.session_state.filter_params.get('filter_type', []),
         key=f"type_{st.session_state.form_key}"
     )
@@ -198,12 +254,10 @@ def main():
         key=f"aisle_cat_{st.session_state.form_key}"
     )
 
-    # Filter Slope dengan logika minimal kapasitas
     filter_slope = st.sidebar.number_input(
         "Min. Max.Slope Capacity (°)", 
         min_value=0, step=1, 
         value=st.session_state.filter_params.get('filter_slope', 0),
-        help="Search for products capable of climbing at least X degrees.",
         key=f"slope_{st.session_state.form_key}"
     )
     
@@ -221,48 +275,35 @@ def main():
         key=f"floor_{st.session_state.form_key}"
     )
 
-    # --- PARAMETER BARU: MULTIPLE CHECKBOXES DALAM EXPANDER ---
+    # Obstacle & Waste Selection
     st.sidebar.markdown("---")
-    
-   # --- OBSTACLE & WASTE SELECTION (MULTIPLE CHECKBOXES) ---
-    st.sidebar.markdown("---")
-    
-    # Obstacle
     st.sidebar.subheader("Obstacle Selection")
     obs_options = get_uniques('Obstacle_List')
     selected_obstacles = []
     if obs_options:
-        with st.sidebar.expander(f"Select Obstacles ({len(obs_options)})", expanded=False):
+        with st.sidebar.expander(f"Select Obstacles ({len(obs_options)})"):
             for obs in obs_options:
                 is_checked = obs in st.session_state.filter_params.get('filter_obstacle', [])
                 if st.checkbox(obs, value=is_checked, key=f"chk_obs_{obs}_{st.session_state.form_key}"):
                     selected_obstacles.append(obs)
-    else:
-        st.sidebar.info("No Obstacle data found in dataset.")
+    else: st.sidebar.info("No Obstacle data found.")
 
-    # Waste Type
     st.sidebar.subheader("Waste Type Selection")
     waste_options = get_uniques('Waste_Type_List')
     selected_wastes = []
     if waste_options:
-        with st.sidebar.expander(f"Select Waste Types ({len(waste_options)})", expanded=False):
+        with st.sidebar.expander(f"Select Waste Types ({len(waste_options)})"):
             for wst in waste_options:
                 is_checked_w = wst in st.session_state.filter_params.get('filter_waste', [])
                 if st.checkbox(wst, value=is_checked_w, key=f"chk_wst_{wst}_{st.session_state.form_key}"):
                     selected_wastes.append(wst)
-    else:
-        st.sidebar.info("No Waste Type data found.")
+    else: st.sidebar.info("No Waste Type data found.")
 
-    # Simpan ke session state
     st.session_state.filter_params = {
-        'pilihan_produk': pilihan_produk,
-        'filter_aisle_cat': filter_aisle_cat,
-        'filter_slope': filter_slope,
-        'filter_type': filter_type,
-        'filter_loc': filter_loc,
-        'filter_area': filter_area,
-        'filter_floor': filter_floor,
-        'filter_obstacle': selected_obstacles,
+        'pilihan_produk': pilihan_produk, 'filter_aisle_cat': filter_aisle_cat,
+        'filter_slope': filter_slope, 'filter_type': filter_type,
+        'filter_loc': filter_loc, 'filter_area': filter_area,
+        'filter_floor': filter_floor, 'filter_obstacle': selected_obstacles,
         'filter_waste': selected_wastes
     }
 
@@ -290,22 +331,17 @@ def main():
         res['Recommended Coverage Area_max'] = pd.to_numeric(res['Recommended Coverage Area_max'], errors='coerce')
         res = res[(res['Recommended Coverage Area_min'] <= params['filter_area']) & (res['Recommended Coverage Area_max'].fillna(float('inf')) >= params['filter_area'])]
 
-    if params['filter_loc']:
-        pattern = "|".join([re.escape(f) for f in params['filter_loc']])
-        res = res[res['Processed_Locations'].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
+    def apply_list_filter(dataframe, target_col, selected_vals):
+        if not selected_vals: return dataframe
+        actual = get_actual_col(dataframe, target_col)
+        if not actual: return dataframe
+        pattern = "|".join([re.escape(str(v)) for v in selected_vals])
+        return dataframe[dataframe[actual].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
 
-    if params['filter_floor']:
-        pattern = "|".join([re.escape(f) for f in params['filter_floor']])
-        res = res[res['Floor_Type_List'].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
-
-    # Filter logic untuk Obstacle dan Waste Type
-    if params['filter_obstacle']:
-        pattern = "|".join([re.escape(f) for f in params['filter_obstacle']])
-        res = res[res['Obstacle_List'].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
-
-    if params['filter_waste']:
-        pattern = "|".join([re.escape(f) for f in params['filter_waste']])
-        res = res[res['Waste_Type_List'].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
+    res = apply_list_filter(res, 'Processed_Locations', params['filter_loc'])
+    res = apply_list_filter(res, 'Floor_Type_List', params['filter_floor'])
+    res = apply_list_filter(res, 'Obstacle_List', params['filter_obstacle'])
+    res = apply_list_filter(res, 'Waste_Type_List', params['filter_waste'])
 
     st.divider()
     st.subheader(f"Results: {len(res)} Products Found")
@@ -316,16 +352,18 @@ def main():
             with cols[idx % 3]:
                 with st.container(border=True):
                     st.image(get_image_path(row['General Specifications']))
-                    st.markdown("<div class='detail-card-content'>", unsafe_allow_html=True)
                     st.markdown(f"**{row['Brand']}**")
-                    st.markdown(f"<small>{row.get('Model Variations', '-')}</small>", unsafe_allow_html=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    st.caption(row.get('Model Variations', '-'))
                     st.button("View Details", key=f"btn_{index}", on_click=click_detail, args=(row,))
     else:
         st.warning("No products match these filters.")
             
-    if st.session_state.show_dialog and st.session_state.detail_row is not None:
-        show_detail(st.session_state.detail_row)
+    # --- DIALOG CALLS ---
+    if st.session_state.show_dialog and not st.session_state.show_compare:
+        show_detail(st.session_state.detail_row, df)
+    
+    if st.session_state.show_compare:
+        show_comparison(st.session_state.compare_base, df)
 
 if __name__ == "__main__":
     main()
