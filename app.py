@@ -62,7 +62,6 @@ def get_actual_col(df, target_name):
     return None
 
 def clean_list_string(val):
-    """Membersihkan format list string ['A', 'B'] menjadi A, B."""
     if pd.isna(val) or str(val).lower() == 'nan': return "-"
     return str(val).replace("[", "").replace("]", "").replace("'", "").strip()
 
@@ -83,7 +82,7 @@ def click_detail(row):
 def load_data():
     try:
         df = pd.read_csv("Dataset_Normalized_Complete.csv", sep=";", encoding='latin1')
-    except UnicodeDecodeError:
+    except:
         df = pd.read_csv("Dataset_Normalized_Complete.csv", sep=";")
     df.columns = df.columns.str.strip() 
     return df
@@ -94,10 +93,9 @@ def get_image_path(filename):
         return "https://via.placeholder.com/300x200?text=No+Image"
     base_path = os.path.join("static", "images")
     clean_name = str(filename).strip()
-    if os.path.exists(os.path.join(base_path, f"{clean_name}.jpg")):
-        return os.path.join(base_path, f"{clean_name}.jpg")
-    if os.path.exists(os.path.join(base_path, f"{clean_name}.png")):
-        return os.path.join(base_path, f"{clean_name}.png")
+    for ext in [".jpg", ".png"]:
+        if os.path.exists(os.path.join(base_path, clean_name + ext)):
+            return os.path.join(base_path, clean_name + ext)
     return "https://via.placeholder.com/300x200?text=No+Image"
 
 # --- PRODUCT COMPARISON POPUP ---
@@ -105,7 +103,6 @@ def get_image_path(filename):
 def show_comparison(base_row, full_df):
     st.write(f"Comparing: **{base_row['Brand']} - {base_row['Model Variations']}**")
     
-    # Pilih produk lain untuk dibandingkan (max 2)
     other_products = full_df[full_df['General Specifications'] != base_row['General Specifications']].copy()
     other_products['Display_Name'] = other_products['Brand'] + " - " + other_products['Model Variations'].fillna("")
     
@@ -115,24 +112,43 @@ def show_comparison(base_row, full_df):
         max_selections=2
     )
     
-    # Kolom yang akan dibanding
-    comparison_cols = ['Floor_Type_List', 'Obstacle_List', 'Waste_Type_List']
-    labels = ["Floor Type", "Obstacle", "Waste Type"]
-    
-    # Menyiapkan Data Tabel
-    data = {"Parameter": labels}
-    
-    # Data Produk Utama
-    data[f"Current: {base_row['Brand']}"] = [
-        clean_list_string(base_row.get(get_actual_col(full_df, col))) for col in comparison_cols
+    # Label untuk baris tabel perbandingan
+    labels = [
+        "Product Type", 
+        "Aisle Width", 
+        "Max Slope", 
+        "Net Weight", 
+        "Dimensions (L/W/H)", 
+        "Application Location", # Tambahan baru
+        "Floor Type", 
+        "Obstacle", 
+        "Waste Type"
     ]
     
-    # Data Produk Pilihan
+    def extract_compare_data(row):
+        """Helper untuk mengambil data spesifik dari baris produk."""
+        dims = f"{row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm"
+        return [
+            row.get('Product_type', '-'),
+            f"{row.get('Aisle Width (mm)', '-')} mm",
+            f"{row.get('Max_Slope', '-')}°",
+            f"{row.get('Net Weight (kg)', '-')} Kg",
+            dims,
+            clean_list_string(row.get(get_actual_col(full_df, 'Processed_Locations'))), # Tambahan baru
+            clean_list_string(row.get(get_actual_col(full_df, 'Floor_Type_List'))),
+            clean_list_string(row.get(get_actual_col(full_df, 'Obstacle_List'))),
+            clean_list_string(row.get(get_actual_col(full_df, 'Waste_Type_List')))
+        ]
+
+    data = {"Parameter": labels}
+    
+    # Masukkan data produk utama
+    data[f"Current: {base_row['Brand']}"] = extract_compare_data(base_row)
+    
+    # Masukkan data produk yang dipilih untuk dibandingkan
     for i, name in enumerate(selected_names):
         comp_row = other_products[other_products['Display_Name'] == name].iloc[0]
-        data[f"Product {i+2}: {name}"] = [
-            clean_list_string(comp_row.get(get_actual_col(full_df, col))) for col in comparison_cols
-        ]
+        data[f"Product {i+2}: {name}"] = extract_compare_data(comp_row)
     
     st.table(pd.DataFrame(data).set_index("Parameter"))
     
@@ -146,20 +162,18 @@ def show_detail(row, full_df):
     brand = row['Brand'] if not pd.isna(row['Brand']) else "-"
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
     aisle_w = row.get('Aisle Width (mm)', '-')
-    slope_val = row.get('Max.Slope (°)', '-')
+    slope_val = row.get('Max_Slope', '-') 
 
     col_title, col_comp = st.columns([3, 1])
     with col_title:
         st.header(f"{brand} - {model}")
     with col_comp:
-        # BUTTON COMPARE PRODUCT
         if st.button("🔄 Compare Product", type="primary"):
             st.session_state.compare_base = row
             st.session_state.show_compare = True
             st.rerun()
 
-    img_path = get_image_path(row.get('General Specifications'))
-    st.image(img_path, width=250) 
+    st.image(get_image_path(row.get('General Specifications')), width=250) 
     
     st.markdown("---")
     col1, col2 = st.columns(2)
@@ -167,17 +181,16 @@ def show_detail(row, full_df):
         st.subheader("General Specifications")
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
         st.write(f"**Aisle Width:** :orange[**{aisle_w} mm**]")
-        st.write(f"**Max. Slope Capacity:** :red[**{slope_val}°**]")
-        st.write(f"**Power Source:** {row.get('Power Source', '-')}")
+        st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
         
     with col2:
         st.subheader("Dimensions & Weight")
-        st.write(f"**Size Category:** {row.get('Ukuran Produk', '-')}")
         st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg")
         st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
 
     st.markdown("---")
     
+    # --- KEMBALIKAN TOMBOL DOWNLOAD & SHARE ---
     spec_name = str(row.get('General Specifications', '')).strip()
     found_path = os.path.join("static", "brochures", f"{spec_name}.pdf")
     spec_name_encoded = urllib.parse.quote(spec_name)
@@ -198,16 +211,12 @@ def show_detail(row, full_df):
             st.markdown(f'<a href="mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button email-button">📧 Email</a>', unsafe_allow_html=True)
     else:
         st.info("Digital brochure is not yet available.")
-    
-    st.markdown("---")
-    st.caption("Use the 'X' icon at the top right to close details.")
 
 # --- MAIN APP ---
 def main():
     if 'form_key' not in st.session_state: st.session_state.form_key = 0
     if 'show_dialog' not in st.session_state: st.session_state.show_dialog = False
     if 'show_compare' not in st.session_state: st.session_state.show_compare = False
-    if 'filter_params' not in st.session_state: st.session_state.filter_params = {}
 
     df = load_data()
 
@@ -226,54 +235,13 @@ def main():
         st.session_state.form_key += 1
         st.rerun()
 
-    pilihan_produk = st.sidebar.radio(
-        "Brand / Category", 
-        ["All", "Manual (Fiorentini)", "Autonomous (Gausium)"],
-        index=["All", "Manual (Fiorentini)", "Autonomous (Gausium)"].index(st.session_state.filter_params.get('pilihan_produk', "All")),
-        key=f"radio_{st.session_state.form_key}"
-    )
-
-    filter_type = st.sidebar.multiselect(
-        "Product Type", 
-        sorted(df['Product_type'].dropna().unique().tolist()) if 'Product_type' in df.columns else [], 
-        default=st.session_state.filter_params.get('filter_type', []),
-        key=f"type_{st.session_state.form_key}"
-    )
-    
-    filter_loc = st.sidebar.multiselect(
-        "Application Location", 
-        get_uniques('Processed_Locations'), 
-        default=st.session_state.filter_params.get('filter_loc', []),
-        key=f"loc_{st.session_state.form_key}"
-    )
-
-    filter_aisle_cat = st.sidebar.multiselect(
-        "Aisle Category", 
-        get_uniques('Aisle Category'),
-        default=st.session_state.filter_params.get('filter_aisle_cat', []),
-        key=f"aisle_cat_{st.session_state.form_key}"
-    )
-
-    filter_slope = st.sidebar.number_input(
-        "Min. Max.Slope Capacity (°)", 
-        min_value=0, step=1, 
-        value=st.session_state.filter_params.get('filter_slope', 0),
-        key=f"slope_{st.session_state.form_key}"
-    )
-    
-    filter_area = st.sidebar.number_input(
-        "Target Area (sqm/h)", 
-        min_value=0, step=100, 
-        value=st.session_state.filter_params.get('filter_area', 0),
-        key=f"area_{st.session_state.form_key}"
-    )
-    
-    filter_floor = st.sidebar.multiselect(
-        "Floor Type", 
-        get_uniques('Floor_Type_List'), 
-        default=st.session_state.filter_params.get('filter_floor', []),
-        key=f"floor_{st.session_state.form_key}"
-    )
+    pilihan_produk = st.sidebar.radio("Brand / Category", ["All", "Manual (Fiorentini)", "Autonomous (Gausium)"], key=f"radio_{st.session_state.form_key}")
+    filter_type = st.sidebar.multiselect("Product Type", sorted(df['Product_type'].dropna().unique().tolist()) if 'Product_type' in df.columns else [], key=f"type_{st.session_state.form_key}")
+    filter_loc = st.sidebar.multiselect("Application Location", get_uniques('Processed_Locations'), key=f"loc_{st.session_state.form_key}")
+    filter_aisle_cat = st.sidebar.multiselect("Aisle Category", get_uniques('Aisle Category'), key=f"aisle_{st.session_state.form_key}")
+    filter_slope = st.sidebar.number_input("Max Slope (°)", min_value=0, step=1, key=f"slope_{st.session_state.form_key}")
+    filter_area = st.sidebar.number_input("Target Area (sqm/h)", min_value=0, step=100, key=f"area_{st.session_state.form_key}")
+    filter_floor = st.sidebar.multiselect("Floor Type", get_uniques('Floor_Type_List'), key=f"floor_{st.session_state.form_key}")
 
     # Obstacle & Waste Selection
     st.sidebar.markdown("---")
@@ -283,10 +251,8 @@ def main():
     if obs_options:
         with st.sidebar.expander(f"Select Obstacles ({len(obs_options)})"):
             for obs in obs_options:
-                is_checked = obs in st.session_state.filter_params.get('filter_obstacle', [])
-                if st.checkbox(obs, value=is_checked, key=f"chk_obs_{obs}_{st.session_state.form_key}"):
+                if st.checkbox(obs, key=f"chk_obs_{obs}_{st.session_state.form_key}"):
                     selected_obstacles.append(obs)
-    else: st.sidebar.info("No Obstacle data found.")
 
     st.sidebar.subheader("Waste Type Selection")
     waste_options = get_uniques('Waste_Type_List')
@@ -294,42 +260,24 @@ def main():
     if waste_options:
         with st.sidebar.expander(f"Select Waste Types ({len(waste_options)})"):
             for wst in waste_options:
-                is_checked_w = wst in st.session_state.filter_params.get('filter_waste', [])
-                if st.checkbox(wst, value=is_checked_w, key=f"chk_wst_{wst}_{st.session_state.form_key}"):
+                if st.checkbox(wst, key=f"chk_wst_{wst}_{st.session_state.form_key}"):
                     selected_wastes.append(wst)
-    else: st.sidebar.info("No Waste Type data found.")
-
-    st.session_state.filter_params = {
-        'pilihan_produk': pilihan_produk, 'filter_aisle_cat': filter_aisle_cat,
-        'filter_slope': filter_slope, 'filter_type': filter_type,
-        'filter_loc': filter_loc, 'filter_area': filter_area,
-        'filter_floor': filter_floor, 'filter_obstacle': selected_obstacles,
-        'filter_waste': selected_wastes
-    }
 
     # --- FILTERING LOGIC ---
     res = df.copy()
-    params = st.session_state.filter_params
-
-    if params['pilihan_produk'] == "Manual (Fiorentini)":
+    if pilihan_produk == "Manual (Fiorentini)":
         res = res[res['Brand'].str.contains("Fiorentini", case=False, na=False)]
-    elif params['pilihan_produk'] == "Autonomous (Gausium)":
+    elif pilihan_produk == "Autonomous (Gausium)":
         res = res[res['Brand'].str.contains("Gausium", case=False, na=False)]
-        
-    if params['filter_aisle_cat']:
-        res = res[res['Aisle Category'].isin(params['filter_aisle_cat'])]
-
-    if params['filter_slope'] > 0:
-        res['temp_slope'] = pd.to_numeric(res['Max.Slope (°)'], errors='coerce').fillna(0)
-        res = res[res['temp_slope'] >= params['filter_slope']]
-
-    if params['filter_type']:
-        res = res[res['Product_type'].isin(params['filter_type'])]
-
-    if params['filter_area'] > 0:
+    if filter_type: res = res[res['Product_type'].isin(filter_type)]
+    if filter_aisle_cat: res = res[res['Aisle Category'].isin(filter_aisle_cat)]
+    if filter_slope > 0:
+        res['temp_slope'] = pd.to_numeric(res['Max_Slope'], errors='coerce').fillna(0)
+        res = res[res['temp_slope'] >= filter_slope]
+    if filter_area > 0:
         res['Recommended Coverage Area_min'] = pd.to_numeric(res['Recommended Coverage Area_min'], errors='coerce')
         res['Recommended Coverage Area_max'] = pd.to_numeric(res['Recommended Coverage Area_max'], errors='coerce')
-        res = res[(res['Recommended Coverage Area_min'] <= params['filter_area']) & (res['Recommended Coverage Area_max'].fillna(float('inf')) >= params['filter_area'])]
+        res = res[(res['Recommended Coverage Area_min'] <= filter_area) & (res['Recommended Coverage Area_max'].fillna(float('inf')) >= filter_area)]
 
     def apply_list_filter(dataframe, target_col, selected_vals):
         if not selected_vals: return dataframe
@@ -338,11 +286,12 @@ def main():
         pattern = "|".join([re.escape(str(v)) for v in selected_vals])
         return dataframe[dataframe[actual].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
 
-    res = apply_list_filter(res, 'Processed_Locations', params['filter_loc'])
-    res = apply_list_filter(res, 'Floor_Type_List', params['filter_floor'])
-    res = apply_list_filter(res, 'Obstacle_List', params['filter_obstacle'])
-    res = apply_list_filter(res, 'Waste_Type_List', params['filter_waste'])
+    res = apply_list_filter(res, 'Processed_Locations', filter_loc)
+    res = apply_list_filter(res, 'Floor_Type_List', filter_floor)
+    res = apply_list_filter(res, 'Obstacle_List', selected_obstacles)
+    res = apply_list_filter(res, 'Waste_Type_List', selected_wastes)
 
+    # --- DISPLAY ---
     st.divider()
     st.subheader(f"Results: {len(res)} Products Found")
     
@@ -358,7 +307,6 @@ def main():
     else:
         st.warning("No products match these filters.")
             
-    # --- DIALOG CALLS ---
     if st.session_state.show_dialog and not st.session_state.show_compare:
         show_detail(st.session_state.detail_row, df)
     
