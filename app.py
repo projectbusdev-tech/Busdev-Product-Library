@@ -166,12 +166,14 @@ def show_comparison(base_row, full_df):
     # Kolom 0 dibiarkan kosong (sejajar dengan index "Parameter")
     # Kolom 1 untuk produk utama
     with image_cols[1]:
-        st.image(get_image_path(base_row.get('General Specifications')), use_container_width=True)
+        with st.container(): # Dibungkus container agar CSS height: 200px diterapkan
+            st.image(get_image_path(base_row.get('General Specifications')), use_container_width=True)
     
     # Kolom selanjutnya untuk produk yang dipilih
     for i, comp_row in enumerate(selected_rows):
         with image_cols[i+2]:
-            st.image(get_image_path(comp_row.get('General Specifications')), use_container_width=True)
+            with st.container(): # Dibungkus container agar CSS height: 200px diterapkan
+                st.image(get_image_path(comp_row.get('General Specifications')), use_container_width=True)
 
     # --- TABEL PERBANDINGAN ---
     st.table(pd.DataFrame(data).set_index("Parameter"))
