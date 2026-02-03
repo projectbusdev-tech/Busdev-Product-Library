@@ -63,8 +63,10 @@ USERS = {
 HISTORY_FILE = "login_history.csv"
 
 def log_login(username, role):
-    """Mencatat riwayat login ke file CSV."""
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    """Mencatat riwayat login ke file CSV dengan penyesuaian waktu WIB (UTC+7)."""
+    # Menambahkan 7 jam untuk mengonversi UTC ke WIB
+    wib_now = datetime.now() + timedelta(hours=7) 
+    now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
     new_entry = pd.DataFrame([[username, role, now]], columns=["Username", "Role", "Timestamp"])
     if not os.path.isfile(HISTORY_FILE):
         new_entry.to_csv(HISTORY_FILE, index=False)
