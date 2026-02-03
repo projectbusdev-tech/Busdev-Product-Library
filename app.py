@@ -200,7 +200,7 @@ def show_detail(row, full_df):
         st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg")
         st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
         # Tambahan data yang diminta
-        st.write(f"**Total Dimensions:** {row.get('Measures_Total', '-')}")
+        st.write(f"**Total Dimensions:** {row.get('Measures_Total', '-')} mm")
 
     st.markdown("---")
     
