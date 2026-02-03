@@ -119,7 +119,7 @@ def show_comparison(base_row, full_df):
         "Max Slope", 
         "Net Weight", 
         "Dimensions (L/W/H)", 
-        "Total Dimensions",
+        "Total Dimensions (mm)",
         "Operation Mode",
         "Environment",
         "Power Source",
