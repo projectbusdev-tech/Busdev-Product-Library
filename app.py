@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import re
 import urllib.parse
-from datetime import datetime # Menambahkan datetime untuk log riwayat
+from datetime import datetime, timedelta # Menambahkan datetime untuk log riwayat
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Product Recommendation Library", layout="wide")
@@ -67,7 +67,8 @@ def log_login(username, role):
     # Menambahkan 7 jam untuk mengonversi UTC ke WIB
     wib_now = datetime.now() + timedelta(hours=7) 
     now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
-    new_entry = pd.DataFrame([[username, role, now]], columns=["Username", "Role", "Timestamp"])
+    
+    new_entry = pd.DataFrame([[username, role, now_str]], columns=["Username", "Role", "Timestamp"])
     if not os.path.isfile(HISTORY_FILE):
         new_entry.to_csv(HISTORY_FILE, index=False)
     else:
