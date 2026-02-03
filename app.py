@@ -149,7 +149,10 @@ def show_comparison(base_row, full_df):
         ]
 
     data = {"Parameter": labels}
-    data[f"Current: {base_row['Brand']}"] = extract_compare_data(base_row)
+    # --- UPDATE: Menggabungkan Brand dan Model Variations untuk produk saat ini ---
+    base_model = base_row.get('Model Variations', '')
+    base_model_str = f" - {base_model}" if pd.notna(base_model) and base_model != "" else ""
+    data[f"Current: {base_row['Brand']}{base_model_str}"] = extract_compare_data(base_row)
     
     # Siapkan data perbandingan produk terpilih
     selected_rows = []
