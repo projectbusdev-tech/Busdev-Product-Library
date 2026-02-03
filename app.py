@@ -112,7 +112,7 @@ def show_comparison(base_row, full_df):
         max_selections=2
     )
     
-    # Label untuk baris tabel perbandingan dengan tambahan field baru
+    # Label untuk baris tabel perbandingan
     labels = [
         "Product Type", 
         "Aisle Width", 
@@ -149,15 +149,31 @@ def show_comparison(base_row, full_df):
         ]
 
     data = {"Parameter": labels}
-    
-    # Masukkan data produk utama
     data[f"Current: {base_row['Brand']}"] = extract_compare_data(base_row)
     
-    # Masukkan data produk yang dipilih untuk dibandingkan
+    # Siapkan data perbandingan produk terpilih
+    selected_rows = []
     for i, name in enumerate(selected_names):
         comp_row = other_products[other_products['Display_Name'] == name].iloc[0]
+        selected_rows.append(comp_row)
         data[f"Product {i+2}: {name}"] = extract_compare_data(comp_row)
     
+    # --- MENAMPILKAN FOTO PRODUK DI ATAS TABEL ---
+    # Membuat kolom: 1 untuk label parameter, sisanya untuk produk (Base + Maks 2 pilihan)
+    num_cols = len(selected_names) + 1
+    image_cols = st.columns([1.2] + [2] * num_cols)
+    
+    # Kolom 0 dibiarkan kosong (sejajar dengan index "Parameter")
+    # Kolom 1 untuk produk utama
+    with image_cols[1]:
+        st.image(get_image_path(base_row.get('General Specifications')), use_container_width=True)
+    
+    # Kolom selanjutnya untuk produk yang dipilih
+    for i, comp_row in enumerate(selected_rows):
+        with image_cols[i+2]:
+            st.image(get_image_path(comp_row.get('General Specifications')), use_container_width=True)
+
+    # --- TABEL PERBANDINGAN ---
     st.table(pd.DataFrame(data).set_index("Parameter"))
     
     if st.button("Close Comparison"):
@@ -190,7 +206,6 @@ def show_detail(row, full_df):
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
         st.write(f"**Aisle Width:** :orange[**{aisle_w} mm**]")
         st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
-        # Tambahan data yang diminta
         st.write(f"**Operation Mode:** {row.get('Operation_mode', '-')}")
         st.write(f"**Environment:** {row.get('Environment', '-')}")
         st.write(f"**Power Source:** {row.get('Power Source', '-')}")
@@ -199,12 +214,10 @@ def show_detail(row, full_df):
         st.subheader("Dimensions & Weight")
         st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg")
         st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
-        # Tambahan data yang diminta
         st.write(f"**Total Dimensions:** {row.get('Measures_Total', '-')} mm")
 
     st.markdown("---")
     
-    # --- KEMBALIKAN TOMBOL DOWNLOAD & SHARE ---
     spec_name = str(row.get('General Specifications', '')).strip()
     found_path = os.path.join("static", "brochures", f"{spec_name}.pdf")
     spec_name_encoded = urllib.parse.quote(spec_name)
