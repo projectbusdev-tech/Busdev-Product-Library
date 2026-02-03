@@ -112,14 +112,18 @@ def show_comparison(base_row, full_df):
         max_selections=2
     )
     
-    # Label untuk baris tabel perbandingan
+    # Label untuk baris tabel perbandingan dengan tambahan field baru
     labels = [
         "Product Type", 
         "Aisle Width", 
         "Max Slope", 
         "Net Weight", 
         "Dimensions (L/W/H)", 
-        "Application Location", # Tambahan baru
+        "Total Dimensions",
+        "Operation Mode",
+        "Environment",
+        "Power Source",
+        "Application Location",
         "Floor Type", 
         "Obstacle", 
         "Waste Type"
@@ -134,7 +138,11 @@ def show_comparison(base_row, full_df):
             f"{row.get('Max_Slope', '-')}°",
             f"{row.get('Net Weight (kg)', '-')} Kg",
             dims,
-            clean_list_string(row.get(get_actual_col(full_df, 'Processed_Locations'))), # Tambahan baru
+            row.get('Measures_Total', '-'),
+            row.get('Operation_mode', '-'),
+            row.get('Environment', '-'),
+            row.get('Power Source', '-'),
+            clean_list_string(row.get(get_actual_col(full_df, 'Processed_Locations'))),
             clean_list_string(row.get(get_actual_col(full_df, 'Floor_Type_List'))),
             clean_list_string(row.get(get_actual_col(full_df, 'Obstacle_List'))),
             clean_list_string(row.get(get_actual_col(full_df, 'Waste_Type_List')))
