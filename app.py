@@ -89,7 +89,7 @@ def show_history_page():
 
 def login_screen():
     """Tampilan login sederhana."""
-    st.markdown("<h2 style='text-align: center;'>Product Library Login</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>Product Library</h2>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         with st.form("login_form"):
