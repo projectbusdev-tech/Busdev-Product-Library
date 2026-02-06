@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import re
 import urllib.parse
-from datetime import datetime, timedelta # Menambahkan datetime untuk log riwayat
+from datetime import datetime, timedelta
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Product Recommendation Library", layout="wide")
@@ -54,7 +54,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CREDENTIALS & HISTORY LOGIC ---
-# Data User (Bisa diganti sesuai kebutuhan)
 USERS = {
     "admin": {"password": "admintn1", "role": "Admin"},
     "user": {"password": "usertn1", "role": "User"}
@@ -63,8 +62,6 @@ USERS = {
 HISTORY_FILE = "login_history.csv"
 
 def log_login(username, role):
-    """Mencatat riwayat login ke file CSV dengan penyesuaian waktu WIB (UTC+7)."""
-    # Menambahkan 7 jam untuk mengonversi UTC ke WIB
     wib_now = datetime.now() + timedelta(hours=7) 
     now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
     
@@ -75,11 +72,9 @@ def log_login(username, role):
         new_entry.to_csv(HISTORY_FILE, mode='a', header=False, index=False)
 
 def show_history_page():
-    """Halaman khusus Admin untuk melihat riwayat login."""
     st.title("📜 Login History")
     if os.path.exists(HISTORY_FILE):
         history_df = pd.read_csv(HISTORY_FILE)
-        # Menampilkan history terbaru di atas
         st.dataframe(history_df.iloc[::-1], use_container_width=True)
         if st.button("Clear History"):
             os.remove(HISTORY_FILE)
@@ -88,7 +83,6 @@ def show_history_page():
         st.info("No login history available.")
 
 def login_screen():
-    """Tampilan login sederhana."""
     st.markdown("<h2 style='text-align: center;'>Product Library</h2>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -110,7 +104,6 @@ def login_screen():
 
 # --- HELPER FUNCTIONS ---
 def get_actual_col(df, target_name):
-    """Mencari nama kolom asli di DataFrame meskipun ada perbedaan spasi/underscore."""
     norm_target = re.sub(r'[\s_]+', '', target_name.lower())
     for col in df.columns:
         if re.sub(r'[\s_]+', '', col.lower()) == norm_target:
@@ -179,7 +172,7 @@ def show_comparison(base_row, full_df):
         dims = f"{row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm"
         return [
             row.get('Product_type', '-'),
-            f"{row.get('Aisle Width (mm)', '-')} mm",
+            f"{row.get('Aisle Width (cm)', '-')} cm", # Diubah ke cm
             f"{row.get('Max_Slope', '-')}°",
             f"{row.get('Net Weight (kg)', '-')} Kg",
             dims,
@@ -227,7 +220,7 @@ def show_comparison(base_row, full_df):
 def show_detail(row, full_df):
     brand = row['Brand'] if not pd.isna(row['Brand']) else "-"
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
-    aisle_w = row.get('Aisle Width (mm)', '-')
+    aisle_w = row.get('Aisle Width (cm)', '-') # Diubah ke cm
     slope_val = row.get('Max_Slope', '-') 
 
     col_title, col_comp = st.columns([3, 1])
@@ -246,7 +239,7 @@ def show_detail(row, full_df):
     with col1:
         st.subheader("General Specifications")
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
-        st.write(f"**Aisle Width:** :orange[**{aisle_w} mm**]")
+        st.write(f"**Aisle Width:** :orange[**{aisle_w} cm**]") # Satuan diubah ke cm
         st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
         st.write(f"**Operation Mode:** {row.get('Operation_mode', '-')}")
         st.write(f"**Environment:** {row.get('Environment', '-')}")
@@ -283,7 +276,6 @@ def show_detail(row, full_df):
 
 # --- MAIN APP ---
 def main():
-    # Inisialisasi session state
     if 'logged_in' not in st.session_state: st.session_state.logged_in = False
     if 'form_key' not in st.session_state: st.session_state.form_key = 0
     if 'show_dialog' not in st.session_state: st.session_state.show_dialog = False
@@ -293,11 +285,9 @@ def main():
         login_screen()
         return
 
-    # Sidebar Header dengan Informasi User & Logout
     st.sidebar.markdown(f"### Welcome, {st.session_state.username}!")
     st.sidebar.caption(f"Role: {st.session_state.role}")
     
-    # Navigasi Halaman
     pages = ["Product Library"]
     if st.session_state.role == "Admin":
         pages.append("Login History")
@@ -308,11 +298,9 @@ def main():
         st.session_state.logged_in = False
         st.rerun()
 
-    # Logika Tampilan Halaman
     if selected_page == "Login History":
         show_history_page()
     else:
-        # --- ISI HALAMAN PRODUCT LIBRARY (KODE ASLI ANDA) ---
         df = load_data()
 
         def get_uniques(col_name):
@@ -334,7 +322,10 @@ def main():
         filter_loc = st.sidebar.multiselect("Application Location", get_uniques('Processed_Locations'), key=f"loc_{st.session_state.form_key}")
         filter_aisle_cat = st.sidebar.multiselect("Aisle Category", get_uniques('Aisle Category'), key=f"aisle_{st.session_state.form_key}")
         filter_slope = st.sidebar.number_input("Max Slope (°)", min_value=0, step=1, key=f"slope_{st.session_state.form_key}")
-        filter_area = st.sidebar.number_input("Target Area (sqm/h)", min_value=0, step=100, key=f"area_{st.session_state.form_key}")
+        
+        # Perubahan Nama dan Variabel Filter: Target Cleaning Area
+        filter_area = st.sidebar.number_input("Target Cleaning Area (sqm/h)", min_value=0, step=100, key=f"area_{st.session_state.form_key}")
+        
         filter_floor = st.sidebar.multiselect("Floor Type", get_uniques('Floor_Type_List'), key=f"floor_{st.session_state.form_key}")
 
         st.sidebar.markdown("---")
@@ -366,10 +357,11 @@ def main():
         if filter_slope > 0:
             res['temp_slope'] = pd.to_numeric(res['Max_Slope'], errors='coerce').fillna(0)
             res = res[res['temp_slope'] >= filter_slope]
+        
+        # Perubahan Logika Filter: Menggunakan Targeted Cleaning_Area
         if filter_area > 0:
-            res['Recommended Coverage Area_min'] = pd.to_numeric(res['Recommended Coverage Area_min'], errors='coerce')
-            res['Recommended Coverage Area_max'] = pd.to_numeric(res['Recommended Coverage Area_max'], errors='coerce')
-            res = res[(res['Recommended Coverage Area_min'] <= filter_area) & (res['Recommended Coverage Area_max'].fillna(float('inf')) >= filter_area)]
+            res['Targeted Cleaning_Area'] = pd.to_numeric(res['Targeted Cleaning_Area'], errors='coerce').fillna(0)
+            res = res[res['Targeted Cleaning_Area'] >= filter_area]
 
         def apply_list_filter(dataframe, target_col, selected_vals):
             if not selected_vals: return dataframe
