@@ -172,7 +172,7 @@ def show_comparison(base_row, full_df):
         dims = f"{row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm"
         return [
             row.get('Product_type', '-'),
-            f"{row.get('Aisle Width (cm)', '-')} cm", # Diubah ke cm
+            f"{row.get('Aisle Width (cm)', '-')} cm",
             f"{row.get('Max_Slope', '-')}°",
             f"{row.get('Net Weight (kg)', '-')} Kg",
             dims,
@@ -220,7 +220,7 @@ def show_comparison(base_row, full_df):
 def show_detail(row, full_df):
     brand = row['Brand'] if not pd.isna(row['Brand']) else "-"
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
-    aisle_w = row.get('Aisle Width (cm)', '-') # Diubah ke cm
+    aisle_w = row.get('Aisle Width (cm)', '-') 
     slope_val = row.get('Max_Slope', '-') 
 
     col_title, col_comp = st.columns([3, 1])
@@ -239,7 +239,7 @@ def show_detail(row, full_df):
     with col1:
         st.subheader("General Specifications")
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
-        st.write(f"**Aisle Width:** :orange[**{aisle_w} cm**]") # Satuan diubah ke cm
+        st.write(f"**Aisle Width:** :orange[**{aisle_w} cm**]") 
         st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
         st.write(f"**Operation Mode:** {row.get('Operation_mode', '-')}")
         st.write(f"**Environment:** {row.get('Environment', '-')}")
@@ -319,13 +319,13 @@ def main():
 
         pilihan_produk = st.sidebar.radio("Brand / Category", ["All", "Manual (Fiorentini)", "Autonomous (Gausium)"], key=f"radio_{st.session_state.form_key}")
         filter_type = st.sidebar.multiselect("Product Type", sorted(df['Product_type'].dropna().unique().tolist()) if 'Product_type' in df.columns else [], key=f"type_{st.session_state.form_key}")
-        filter_loc = st.sidebar.multiselect("Application Location", get_uniques('Processed_Locations'), key=f"loc_{st.session_state.form_key}")
+        
+        # Perubahan: Filter sidebar diubah menjadi Environment
+        filter_env = st.sidebar.multiselect("Environment", get_uniques('Environment'), key=f"env_{st.session_state.form_key}")
+        
         filter_aisle_cat = st.sidebar.multiselect("Aisle Category", get_uniques('Aisle Category'), key=f"aisle_{st.session_state.form_key}")
         filter_slope = st.sidebar.number_input("Max Slope (°)", min_value=0, step=1, key=f"slope_{st.session_state.form_key}")
-        
-        # Perubahan Nama dan Variabel Filter: Target Cleaning Area
         filter_area = st.sidebar.number_input("Target Cleaning Area (sqm/h)", min_value=0, step=100, key=f"area_{st.session_state.form_key}")
-        
         filter_floor = st.sidebar.multiselect("Floor Type", get_uniques('Floor_Type_List'), key=f"floor_{st.session_state.form_key}")
 
         st.sidebar.markdown("---")
@@ -357,8 +357,6 @@ def main():
         if filter_slope > 0:
             res['temp_slope'] = pd.to_numeric(res['Max_Slope'], errors='coerce').fillna(0)
             res = res[res['temp_slope'] >= filter_slope]
-        
-        # Perubahan Logika Filter: Menggunakan Targeted Cleaning_Area
         if filter_area > 0:
             res['Targeted Cleaning_Area'] = pd.to_numeric(res['Targeted Cleaning_Area'], errors='coerce').fillna(0)
             res = res[res['Targeted Cleaning_Area'] >= filter_area]
@@ -370,7 +368,9 @@ def main():
             pattern = "|".join([re.escape(str(v)) for v in selected_vals])
             return dataframe[dataframe[actual].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
 
-        res = apply_list_filter(res, 'Processed_Locations', filter_loc)
+        # Menggunakan filter Environment untuk menyaring data
+        res = apply_list_filter(res, 'Environment', filter_env)
+        
         res = apply_list_filter(res, 'Floor_Type_List', filter_floor)
         res = apply_list_filter(res, 'Obstacle_List', selected_obstacles)
         res = apply_list_filter(res, 'Waste_Type_List', selected_wastes)
