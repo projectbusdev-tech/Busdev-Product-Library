@@ -53,14 +53,52 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- CREDENTIALS & HISTORY LOGIC ---
-USERS = {
-    "admin": {"password": "admintn1", "role": "Admin"},
-    "user": {"password": "usertn1", "role": "User"}
+# --- CREDENTIALS & USER DATABASE ---
+# Akun admin tetap hardcoded
+ADMIN_USERS = {
+    "admin": {"password": "admintn1", "role": "Admin"}
 }
 
+USER_DB_FILE = "users_db.csv"
 HISTORY_FILE = "login_history.csv"
 
+def load_registered_users():
+    if os.path.exists(USER_DB_FILE):
+        return pd.read_csv(USER_DB_FILE)
+    return pd.DataFrame(columns=["Username", "Password", "Role", "Verified"])
+
+def save_new_user(email):
+    users_df = load_registered_users()
+    if email in users_df['Username'].values:
+        return False, "Email sudah terdaftar!"
+    
+    # Simpan user baru (Default password: usertn1 untuk kemudahan demo ini)
+    new_entry = pd.DataFrame([[email, "usertn1", "User", True]], columns=["Username", "Password", "Role", "Verified"])
+    new_entry.to_csv(USER_DB_FILE, mode='a', header=not os.path.exists(USER_DB_FILE), index=False)
+    return True, "Berhasil mendaftar! Silakan cek email Anda untuk verifikasi (Simulasi)."
+
+# --- DIALOG SIGN UP ---
+@st.dialog("Sign Up")
+def signup_dialog():
+    st.write("Daftar akun baru menggunakan email korporat Anda.")
+    email_input = st.text_input("Email (@traknus.co.id)")
+    
+    if st.button("Daftar Sekarang"):
+        if not email_input:
+            st.error("Email tidak boleh kosong.")
+        elif not email_input.endswith("@traknus.co.id"):
+            st.error("Maaf, hanya email dengan akhiran @traknus.co.id yang diperbolehkan.")
+        else:
+            success, msg = save_new_user(email_input)
+            if success:
+                st.success(msg)
+                st.info("Gunakan email Anda sebagai username untuk login.")
+                if st.button("Tutup"):
+                    st.rerun()
+            else:
+                st.warning(msg)
+
+# --- HISTORY LOGIC ---
 def log_login(username, role):
     wib_now = datetime.now() + timedelta(hours=7) 
     now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
@@ -87,20 +125,38 @@ def login_screen():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         with st.form("login_form"):
-            username = st.text_input("Username")
+            username = st.text_input("Username / Email")
             password = st.text_input("Password", type="password")
             submit = st.form_submit_button("Login")
             
             if submit:
-                if username in USERS and USERS[username]["password"] == password:
+                # Cek Admin Hardcoded
+                if username in ADMIN_USERS and ADMIN_USERS[username]["password"] == password:
                     st.session_state.logged_in = True
                     st.session_state.username = username
-                    st.session_state.role = USERS[username]["role"]
+                    st.session_state.role = ADMIN_USERS[username]["role"]
                     log_login(username, st.session_state.role)
-                    st.success("Login Successful!")
+                    st.success("Login Berhasil sebagai Admin!")
                     st.rerun()
+                
+                # Cek Database User Terdaftar
                 else:
-                    st.error("Invalid Username or Password")
+                    users_df = load_registered_users()
+                    match = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
+                    if not match.empty:
+                        st.session_state.logged_in = True
+                        st.session_state.username = username
+                        st.session_state.role = match.iloc[0]['Role']
+                        log_login(username, st.session_state.role)
+                        st.success("Login Berhasil!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid Username or Password")
+        
+        # Tombol Sign Up di luar form
+        st.write("---")
+        if st.button("Belum punya akun? Sign Up di sini"):
+            signup_dialog()
 
 # --- HELPER FUNCTIONS ---
 def get_actual_col(df, target_name):
@@ -340,6 +396,7 @@ def main():
         filter_aisle_cat = st.sidebar.multiselect("Aisle Category", get_uniques('Aisle Category'), key=f"aisle_{st.session_state.form_key}")
 
         # 8. Obstacle 
+        st.sidebar.markdown("---")
         st.sidebar.subheader("Obstacle Selection")
         obs_options = get_uniques('Obstacle_List')
         selected_obstacles = []
