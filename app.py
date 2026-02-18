@@ -155,7 +155,7 @@ def login_screen():
         
         # Tombol Sign Up di luar form
         st.write("---")
-        if st.button("Belum punya akun? Sign Up di sini"):
+        if st.button("Sign Up"):
             signup_dialog()
 
 # --- HELPER FUNCTIONS ---
