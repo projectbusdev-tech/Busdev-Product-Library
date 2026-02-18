@@ -317,18 +317,29 @@ def main():
             st.session_state.form_key += 1
             st.rerun()
 
+        # --- REORDERED FILTERS ---
+        # 1. Brand/Category
         pilihan_produk = st.sidebar.radio("Brand / Category", ["All", "Manual (Fiorentini)", "Autonomous (Gausium)"], key=f"radio_{st.session_state.form_key}")
+        
+        # 2. Product Type
         filter_type = st.sidebar.multiselect("Product Type", sorted(df['Product_type'].dropna().unique().tolist()) if 'Product_type' in df.columns else [], key=f"type_{st.session_state.form_key}")
         
-        # Perubahan: Filter sidebar diubah menjadi Environment
+        # 3. Environment
         filter_env = st.sidebar.multiselect("Environment", get_uniques('Environment'), key=f"env_{st.session_state.form_key}")
         
-        filter_aisle_cat = st.sidebar.multiselect("Aisle Category", get_uniques('Aisle Category'), key=f"aisle_{st.session_state.form_key}")
-        filter_slope = st.sidebar.number_input("Max Slope (°)", min_value=0, step=1, key=f"slope_{st.session_state.form_key}")
-        filter_area = st.sidebar.number_input("Target Cleaning Area (m²/5h)", min_value=0, step=100, key=f"area_{st.session_state.form_key}")
+        # 4. Floor Type
         filter_floor = st.sidebar.multiselect("Floor Type", get_uniques('Floor_Type_List'), key=f"floor_{st.session_state.form_key}")
+        
+        # 5. Target Cleaning Area (m²/5h)
+        filter_area = st.sidebar.number_input("Target Cleaning Area (m²/5h)", min_value=0, step=100, key=f"area_{st.session_state.form_key}")
+        
+        # 6. Max Slope
+        filter_slope = st.sidebar.number_input("Max Slope (°)", min_value=0, step=1, key=f"slope_{st.session_state.form_key}")
+        
+        # 7. Aisle Category
+        filter_aisle_cat = st.sidebar.multiselect("Aisle Category", get_uniques('Aisle Category'), key=f"aisle_{st.session_state.form_key}")
 
-        st.sidebar.markdown("---")
+        # 8. Obstacle 
         st.sidebar.subheader("Obstacle Selection")
         obs_options = get_uniques('Obstacle_List')
         selected_obstacles = []
@@ -338,6 +349,7 @@ def main():
                     if st.checkbox(obs, key=f"chk_obs_{obs}_{st.session_state.form_key}"):
                         selected_obstacles.append(obs)
 
+        # 9. Waste Type
         st.sidebar.subheader("Waste Type Selection")
         waste_options = get_uniques('Waste_Type_List')
         selected_wastes = []
@@ -347,6 +359,7 @@ def main():
                     if st.checkbox(wst, key=f"chk_wst_{wst}_{st.session_state.form_key}"):
                         selected_wastes.append(wst)
 
+        # --- APPLY FILTERS ---
         res = df.copy()
         if pilihan_produk == "Manual (Fiorentini)":
             res = res[res['Brand'].str.contains("Fiorentini", case=False, na=False)]
@@ -368,9 +381,7 @@ def main():
             pattern = "|".join([re.escape(str(v)) for v in selected_vals])
             return dataframe[dataframe[actual].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
 
-        # Menggunakan filter Environment untuk menyaring data
         res = apply_list_filter(res, 'Environment', filter_env)
-        
         res = apply_list_filter(res, 'Floor_Type_List', filter_floor)
         res = apply_list_filter(res, 'Obstacle_List', selected_obstacles)
         res = apply_list_filter(res, 'Waste_Type_List', selected_wastes)
