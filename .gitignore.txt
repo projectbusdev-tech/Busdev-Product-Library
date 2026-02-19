@@ -1,4 +1,4 @@
-.streamlit/
+.streamlit/secrets.toml
 users_db.csv
 login_history.csv
 __pycache__/
