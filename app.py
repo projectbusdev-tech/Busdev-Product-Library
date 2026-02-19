@@ -383,15 +383,15 @@ def main():
     st.sidebar.markdown(f"### Welcome, {st.session_state.username}!")
     st.sidebar.caption(f"Role: {st.session_state.role}")
     
+    if st.sidebar.button("🚪 Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
+    
     pages = ["Product Library"]
     if st.session_state.role == "Admin":
         pages.extend(["Login History", "User Management"])
     
     selected_page = st.sidebar.selectbox("Navigate to", pages)
-
-    if st.sidebar.button("🚪 Logout"):
-        st.session_state.logged_in = False
-        st.rerun()
 
     if selected_page == "Login History":
         show_history_page()
