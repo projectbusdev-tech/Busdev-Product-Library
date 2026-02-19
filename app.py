@@ -53,14 +53,58 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- CREDENTIALS & HISTORY LOGIC ---
-USERS = {
-    "admin": {"password": "admintn1", "role": "Admin"},
-    "user": {"password": "usertn1", "role": "User"}
+# --- CREDENTIALS & USER DATABASE ---
+# Akun admin tetap hardcoded
+ADMIN_USERS = {
+    "admin": {"password": "admintn1", "role": "Admin"}
 }
 
+USER_DB_FILE = "users_db.csv"
 HISTORY_FILE = "login_history.csv"
 
+def load_registered_users():
+    if os.path.exists(USER_DB_FILE):
+        return pd.read_csv(USER_DB_FILE)
+    return pd.DataFrame(columns=["Username", "Password", "Role", "Verified"])
+
+def save_new_user(email, password):
+    users_df = load_registered_users()
+    if email in users_df['Username'].values:
+        return False, "Email sudah terdaftar!"
+    
+    # Simpan user baru dengan password yang diinput user
+    new_entry = pd.DataFrame([[email, password, "User", True]], columns=["Username", "Password", "Role", "Verified"])
+    new_entry.to_csv(USER_DB_FILE, mode='a', header=not os.path.exists(USER_DB_FILE), index=False)
+    return True, "Akun berhasil dibuat! Silakan login menggunakan email dan password Anda."
+
+# --- DIALOG SIGN UP ---
+@st.dialog("Sign Up")
+def signup_dialog():
+    st.write("Daftar akun baru untuk mengakses Product Library.")
+    email_input = st.text_input("Email (@traknus.co.id)")
+    password_input = st.text_input("Buat Password", type="password")
+    confirm_password = st.text_input("Konfirmasi Password", type="password")
+    
+    if st.button("Daftar Sekarang"):
+        if not email_input or not password_input:
+            st.error("Email dan Password tidak boleh kosong.")
+        elif not email_input.endswith("@traknus.co.id"):
+            st.error("Maaf, hanya email @traknus.co.id yang diperbolehkan.")
+        elif password_input != confirm_password:
+            st.error("Konfirmasi password tidak cocok.")
+        elif len(password_input) < 6:
+            st.warning("Password minimal 6 karakter.")
+        else:
+            success, msg = save_new_user(email_input, password_input)
+            if success:
+                st.success(msg)
+                st.balloons() # Memberikan efek selebrasi karena akun langsung aktif
+                if st.button("Ke Halaman Login"):
+                    st.rerun()
+            else:
+                st.warning(msg)
+
+# --- HISTORY LOGIC ---
 def log_login(username, role):
     wib_now = datetime.now() + timedelta(hours=7) 
     now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
@@ -87,20 +131,71 @@ def login_screen():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         with st.form("login_form"):
-            username = st.text_input("Username")
+            username = st.text_input("Username / Email")
             password = st.text_input("Password", type="password")
             submit = st.form_submit_button("Login")
             
             if submit:
-                if username in USERS and USERS[username]["password"] == password:
+                # Cek Admin Hardcoded
+                if username in ADMIN_USERS and ADMIN_USERS[username]["password"] == password:
                     st.session_state.logged_in = True
                     st.session_state.username = username
-                    st.session_state.role = USERS[username]["role"]
+                    st.session_state.role = ADMIN_USERS[username]["role"]
                     log_login(username, st.session_state.role)
-                    st.success("Login Successful!")
+                    st.success("Login Berhasil sebagai Admin!")
                     st.rerun()
+                
+                # Cek Database User Terdaftar
                 else:
-                    st.error("Invalid Username or Password")
+                    users_df = load_registered_users()
+                    match = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
+                    if not match.empty:
+                        st.session_state.logged_in = True
+                        st.session_state.username = username
+                        st.session_state.role = match.iloc[0]['Role']
+                        log_login(username, st.session_state.role)
+                        st.success("Login Berhasil!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid Username or Password")
+        
+        # Tombol Sign Up di luar form
+        st.write("---")
+        if st.button("Sign Up"):
+            signup_dialog()
+
+def show_user_management_page():
+    st.title("👥 User Management")
+    users_df = load_registered_users()
+    
+    if not users_df.empty:
+        # Menampilkan tabel user
+        st.subheader("Registered Users List")
+        
+        # Tambahkan kolom aksi untuk hapus
+        for index, row in users_df.iterrows():
+            col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+            with col1:
+                st.write(f"**Email:** {row['Username']}")
+            with col2:
+                st.write(f"**Role:** {row['Role']}")
+            with col3:
+                status = "✅ Verified" if row['Verified'] else "❌ Unverified"
+                st.write(status)
+            with col4:
+                # Tombol hapus user (Admin tidak bisa menghapus dirinya sendiri di sini)
+                if row['Username'] != st.session_state.username:
+                    if st.button("Delete", key=f"del_{row['Username']}"):
+                        # Logika Hapus
+                        updated_df = users_df[users_df['Username'] != row['Username']]
+                        updated_df.to_csv(USER_DB_FILE, index=False)
+                        st.success(f"User {row['Username']} berhasil dihapus!")
+                        st.rerun()
+                else:
+                    st.write("(Current Admin)")
+            st.divider()
+    else:
+        st.info("Belum ada user yang terdaftar di database.")
 
 # --- HELPER FUNCTIONS ---
 def get_actual_col(df, target_name):
@@ -288,18 +383,20 @@ def main():
     st.sidebar.markdown(f"### Welcome, {st.session_state.username}!")
     st.sidebar.caption(f"Role: {st.session_state.role}")
     
-    pages = ["Product Library"]
-    if st.session_state.role == "Admin":
-        pages.append("Login History")
-    
-    selected_page = st.sidebar.selectbox("Navigate to", pages)
-
     if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
         st.rerun()
+    
+    pages = ["Product Library"]
+    if st.session_state.role == "Admin":
+        pages.extend(["Login History", "User Management"])
+    
+    selected_page = st.sidebar.selectbox("Navigate to", pages)
 
     if selected_page == "Login History":
         show_history_page()
+    elif selected_page == "User Management":
+        show_user_management_page()
     else:
         df = load_data()
 
@@ -317,18 +414,29 @@ def main():
             st.session_state.form_key += 1
             st.rerun()
 
+        # --- REORDERED FILTERS ---
+        # 1. Brand/Category
         pilihan_produk = st.sidebar.radio("Brand / Category", ["All", "Manual (Fiorentini)", "Autonomous (Gausium)"], key=f"radio_{st.session_state.form_key}")
+        
+        # 2. Product Type
         filter_type = st.sidebar.multiselect("Product Type", sorted(df['Product_type'].dropna().unique().tolist()) if 'Product_type' in df.columns else [], key=f"type_{st.session_state.form_key}")
         
-        # Perubahan: Filter sidebar diubah menjadi Environment
+        # 3. Environment
         filter_env = st.sidebar.multiselect("Environment", get_uniques('Environment'), key=f"env_{st.session_state.form_key}")
         
-        filter_aisle_cat = st.sidebar.multiselect("Aisle Category", get_uniques('Aisle Category'), key=f"aisle_{st.session_state.form_key}")
-        filter_slope = st.sidebar.number_input("Max Slope (°)", min_value=0, step=1, key=f"slope_{st.session_state.form_key}")
-        filter_area = st.sidebar.number_input("Target Cleaning Area (m²/5h)", min_value=0, step=100, key=f"area_{st.session_state.form_key}")
+        # 4. Floor Type
         filter_floor = st.sidebar.multiselect("Floor Type", get_uniques('Floor_Type_List'), key=f"floor_{st.session_state.form_key}")
+        
+        # 5. Target Cleaning Area (m²/5h)
+        filter_area = st.sidebar.number_input("Target Cleaning Area (m²/5h)", min_value=0, step=100, key=f"area_{st.session_state.form_key}")
+        
+        # 6. Max Slope
+        filter_slope = st.sidebar.number_input("Max Slope (°)", min_value=0, step=1, key=f"slope_{st.session_state.form_key}")
+        
+        # 7. Aisle Category
+        filter_aisle_cat = st.sidebar.multiselect("Aisle Category", get_uniques('Aisle Category'), key=f"aisle_{st.session_state.form_key}")
 
-        st.sidebar.markdown("---")
+        # 8. Obstacle 
         st.sidebar.subheader("Obstacle Selection")
         obs_options = get_uniques('Obstacle_List')
         selected_obstacles = []
@@ -338,6 +446,7 @@ def main():
                     if st.checkbox(obs, key=f"chk_obs_{obs}_{st.session_state.form_key}"):
                         selected_obstacles.append(obs)
 
+        # 9. Waste Type
         st.sidebar.subheader("Waste Type Selection")
         waste_options = get_uniques('Waste_Type_List')
         selected_wastes = []
@@ -347,6 +456,7 @@ def main():
                     if st.checkbox(wst, key=f"chk_wst_{wst}_{st.session_state.form_key}"):
                         selected_wastes.append(wst)
 
+        # --- APPLY FILTERS ---
         res = df.copy()
         if pilihan_produk == "Manual (Fiorentini)":
             res = res[res['Brand'].str.contains("Fiorentini", case=False, na=False)]
@@ -368,9 +478,7 @@ def main():
             pattern = "|".join([re.escape(str(v)) for v in selected_vals])
             return dataframe[dataframe[actual].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
 
-        # Menggunakan filter Environment untuk menyaring data
         res = apply_list_filter(res, 'Environment', filter_env)
-        
         res = apply_list_filter(res, 'Floor_Type_List', filter_floor)
         res = apply_list_filter(res, 'Obstacle_List', selected_obstacles)
         res = apply_list_filter(res, 'Waste_Type_List', selected_wastes)
