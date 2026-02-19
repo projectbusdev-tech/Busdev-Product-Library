@@ -506,7 +506,6 @@ def main():
             
         if st.session_state.show_dialog and st.session_state.detail_row is not None:
             show_detail(st.session_state.detail_row, df)
-            st.session_state.show_dialog = False
 
 if __name__ == "__main__":
     main()
