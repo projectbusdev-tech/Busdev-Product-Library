@@ -164,6 +164,39 @@ def login_screen():
         if st.button("Sign Up"):
             signup_dialog()
 
+def show_user_management_page():
+    st.title("👥 User Management")
+    users_df = load_registered_users()
+    
+    if not users_df.empty:
+        # Menampilkan tabel user
+        st.subheader("Registered Users List")
+        
+        # Tambahkan kolom aksi untuk hapus
+        for index, row in users_df.iterrows():
+            col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+            with col1:
+                st.write(f"**Email:** {row['Username']}")
+            with col2:
+                st.write(f"**Role:** {row['Role']}")
+            with col3:
+                status = "✅ Verified" if row['Verified'] else "❌ Unverified"
+                st.write(status)
+            with col4:
+                # Tombol hapus user (Admin tidak bisa menghapus dirinya sendiri di sini)
+                if row['Username'] != st.session_state.username:
+                    if st.button("Delete", key=f"del_{row['Username']}"):
+                        # Logika Hapus
+                        updated_df = users_df[users_df['Username'] != row['Username']]
+                        updated_df.to_csv(USER_DB_FILE, index=False)
+                        st.success(f"User {row['Username']} berhasil dihapus!")
+                        st.rerun()
+                else:
+                    st.write("(Current Admin)")
+            st.divider()
+    else:
+        st.info("Belum ada user yang terdaftar di database.")
+
 # --- HELPER FUNCTIONS ---
 def get_actual_col(df, target_name):
     norm_target = re.sub(r'[\s_]+', '', target_name.lower())
@@ -352,7 +385,7 @@ def main():
     
     pages = ["Product Library"]
     if st.session_state.role == "Admin":
-        pages.append("Login History")
+        pages.extend(["Login History", "User Management"])
     
     selected_page = st.sidebar.selectbox("Navigate to", pages)
 
@@ -362,6 +395,8 @@ def main():
 
     if selected_page == "Login History":
         show_history_page()
+    elif selected_page == "User Management":
+        show_user_management_page()
     else:
         df = load_data()
 
