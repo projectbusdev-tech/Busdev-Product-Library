@@ -222,13 +222,23 @@ def click_detail(row):
     st.session_state.show_compare = False
 
 # --- LOAD DATA FUNCTION ---
-@st.cache_data
+@st.cache_data(ttl=3600)
 def load_data():
     try:
+        # Membaca file dengan encoding latin1
         df = pd.read_csv("Dataset_Normalized_Complete.csv", sep=";", encoding='latin1')
     except:
+        # Fallback jika encoding default berbeda
         df = pd.read_csv("Dataset_Normalized_Complete.csv", sep=";")
+    
+    # 1. Bersihkan nama kolom dari spasi (Sudah ada di kode Anda)
     df.columns = df.columns.str.strip() 
+
+    # 2. PENEMPATAN BARU: Bersihkan isi data pada kolom Product_type
+    # Ini memastikan "Scrubber " (dengan spasi) menjadi "Scrubber"
+    if 'Product_type' in df.columns:
+        df['Product_type'] = df['Product_type'].astype(str).str.strip()
+    
     return df
 
 # --- IMAGE CHECKER FUNCTION ---
