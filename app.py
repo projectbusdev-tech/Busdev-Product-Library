@@ -437,7 +437,6 @@ def main():
         filter_aisle_cat = st.sidebar.multiselect("Aisle Category", get_uniques('Aisle Category'), key=f"aisle_{st.session_state.form_key}")
 
         # 8. Obstacle 
-        st.sidebar.markdown("---")
         st.sidebar.subheader("Obstacle Selection")
         obs_options = get_uniques('Obstacle_List')
         selected_obstacles = []
