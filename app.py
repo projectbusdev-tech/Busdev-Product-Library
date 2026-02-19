@@ -222,13 +222,23 @@ def click_detail(row):
     st.session_state.show_compare = False
 
 # --- LOAD DATA FUNCTION ---
-@st.cache_data
+@st.cache_data(ttl=3600)
 def load_data():
     try:
+        # Membaca file dengan encoding latin1
         df = pd.read_csv("Dataset_Normalized_Complete.csv", sep=";", encoding='latin1')
     except:
+        # Fallback jika encoding default berbeda
         df = pd.read_csv("Dataset_Normalized_Complete.csv", sep=";")
+    
+    # 1. Bersihkan nama kolom dari spasi (Sudah ada di kode Anda)
     df.columns = df.columns.str.strip() 
+
+    # 2. PENEMPATAN BARU: Bersihkan isi data pada kolom Product_type
+    # Ini memastikan "Scrubber " (dengan spasi) menjadi "Scrubber"
+    if 'Product_type' in df.columns:
+        df['Product_type'] = df['Product_type'].astype(str).str.strip()
+    
     return df
 
 # --- IMAGE CHECKER FUNCTION ---
@@ -325,6 +335,7 @@ def show_detail(row, full_df):
         if st.button("🔄 Compare Product", type="primary"):
             st.session_state.compare_base = row
             st.session_state.show_compare = True
+            st.session_state.show_dialog = False # Reset status dialog detail
             st.rerun()
 
     st.image(get_image_path(row.get('General Specifications')), width=250) 
@@ -368,6 +379,15 @@ def show_detail(row, full_df):
             st.markdown(f'<a href="mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button email-button">📧 Email</a>', unsafe_allow_html=True)
     else:
         st.info("Digital brochure is not yet available.")
+
+
+    st.markdown("---")
+    
+    # TAMBAHKAN TOMBOL CLOSE MANUAL
+    if st.button("Tutup Detail"):
+        st.session_state.show_dialog = False
+        st.session_state.detail_row = None
+        st.rerun()
 
 # --- MAIN APP ---
 def main():
@@ -498,11 +518,21 @@ def main():
         else:
             st.warning("No products match these filters.")
                 
-        if st.session_state.show_dialog and not st.session_state.show_compare:
+        # --- REVISI PEMANGGILAN DIALOG ---
+        # 1. Menangani Popup Detail Produk
+        if st.session_state.show_dialog and st.session_state.detail_row is not None:
             show_detail(st.session_state.detail_row, df)
+            # KUNCI PERBAIKAN: Segera set ke False setelah fungsi dipanggil.
+            # Ini akan membersihkan antrean sehingga saat filter sidebar diubah (rerun),
+            # kondisi if ini tidak lagi terpenuhi secara otomatis.
+            st.session_state.show_dialog = False
         
+        # 2. Menangani Popup Perbandingan (Comparison)
         if st.session_state.show_compare:
             show_comparison(st.session_state.compare_base, df)
+            # Opsional: Jika popup pembanding juga sering muncul sendiri, 
+            # aktifkan baris di bawah ini:
+            # st.session_state.show_compare = False
 
 if __name__ == "__main__":
     main()
