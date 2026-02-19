@@ -55,7 +55,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CREDENTIALS & USER DATABASE ---
-# --- DATABASE & AUTH LOGIC (Anti-Error & Registrasi) ---
+# --- DATABASE LOGIC (Sistem User) ---
 ADMIN_USERS = {"admin": {"password": "admintn1", "role": "Admin"}}
 USER_DB_FILE = "users_db.csv"
 HISTORY_FILE = "login_history.csv"
@@ -65,20 +65,33 @@ def load_registered_users():
     if os.path.exists(USER_DB_FILE):
         try:
             df = pd.read_csv(USER_DB_FILE)
+            # Validasi kolom agar tidak terjadi error jika format lama ditemukan
             for col in cols:
-                if col not in df.columns: df[col] = None if col != "Verified" else False
+                if col not in df.columns:
+                    df[col] = None if col != "Verified" else False
             return df
         except Exception:
-            if os.path.exists(USER_DB_FILE): os.remove(USER_DB_FILE)
+            # Jika file rusak (ParserError), hapus dan buat baru
+            if os.path.exists(USER_DB_FILE):
+                os.remove(USER_DB_FILE)
             return pd.DataFrame(columns=cols)
     return pd.DataFrame(columns=cols)
 
 def save_new_user(email):
     users_df = load_registered_users()
     if not users_df.empty and email in users_df['Username'].values:
-        return False, "Email sudah terdaftar.", None
+        return False, "Email ini sudah terdaftar.", None
+    
     token = str(uuid.uuid4())
-    new_user = {"Username": email, "Password": "", "Role": "User", "Verified": False, "Token": token}
+    new_user = {
+        "Username": email,
+        "Password": "", # Kosong, akan diisi saat verifikasi
+        "Role": "User",
+        "Verified": False,
+        "Token": token
+    }
+    
+    # Simpan dengan menggabungkan ke dataframe utama
     new_df = pd.concat([users_df, pd.DataFrame([new_user])], ignore_index=True)
     new_df.to_csv(USER_DB_FILE, index=False)
     return True, "Berhasil!", token
@@ -92,70 +105,95 @@ def update_user_password(token, new_password):
         return True
     return False
 
-# --- SCREEN: SET PASSWORD ---
+# --- SCREEN: SET PASSWORD (Mengecek URL ?token=...) ---
 def set_password_screen(token):
-    st.markdown("<h2 style='text-align: center;'>🔐 Aktivasi Akun</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>🔐 Buat Password Akun Baru</h2>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         users_df = load_registered_users()
         user_data = users_df[users_df['Token'] == token]
+        
         if user_data.empty:
-            st.error("Token tidak valid."); st.button("Ke Login", on_click=lambda: st.query_params.clear())
+            st.error("Token verifikasi tidak valid atau sudah kadaluarsa.")
+            if st.button("Kembali ke Login"):
+                st.query_params.clear()
+                st.rerun()
             return
-        st.info(f"Email: **{user_data.iloc[0]['Username']}**")
-        with st.form("set_pass"):
+
+        email = user_data.iloc[0]['Username']
+        st.info(f"Mengatur akun untuk: **{email}**")
+        
+        with st.form("form_password"):
             p1 = st.text_input("Password Baru", type="password")
             p2 = st.text_input("Konfirmasi Password", type="password")
-            if st.form_submit_button("Aktifkan"):
-                if len(p1) < 6: st.error("Minimal 6 karakter.")
-                elif p1 != p2: st.error("Password tidak cocok.")
+            if st.form_submit_button("Aktifkan Akun & Login"):
+                if len(p1) < 6:
+                    st.error("Password minimal 6 karakter.")
+                elif p1 != p2:
+                    st.error("Password tidak cocok.")
                 else:
                     if update_user_password(token, p1):
-                        st.success("Akun aktif!"); st.query_params.clear(); st.rerun()
+                        st.success("Akun aktif! Silakan login.")
+                        st.query_params.clear()
+                        st.rerun()
 
 # --- DIALOG SIGN UP ---
-@st.dialog("Sign Up")
+@st.dialog("Pendaftaran Akun Baru")
 def signup_dialog():
-    email = st.text_input("Email (@traknus.co.id / @gmail.com)")
-    if st.button("Daftar"):
-        if email and (email.endswith("@traknus.co.id") or email.endswith("@gmail.com")):
-            success, msg, token = save_new_user(email)
+    st.write("Gunakan email @traknus.co.id atau @gmail.com (Tes).")
+    email_input = st.text_input("Masukkan Email Anda")
+    
+    if st.button("Daftar Sekarang"):
+        if not email_input:
+            st.error("Email tidak boleh kosong.")
+        elif not (email_input.endswith("@traknus.co.id") or email_input.endswith("@gmail.com")):
+            st.error("Gunakan email @traknus.co.id atau @gmail.com")
+        else:
+            success, msg, token = save_new_user(email_input)
             if success:
-                st.session_state.signup_token = token
-                st.session_state.signup_ok = True
-            else: st.warning(msg)
-        else: st.error("Email tidak valid.")
-    if st.session_state.get('signup_ok'):
-        st.success("Berhasil! Klik link di bawah untuk buat password:")
-        st.markdown(f"[✅ Link Aktivasi](/?token={st.session_state.signup_token})")
-        if st.button("Tutup"): st.session_state.signup_ok = False; st.rerun()
+                st.session_state.signup_done = True
+                st.session_state.temp_token = token
+                st.session_state.temp_email = email_input
+            else:
+                st.warning(msg)
 
+    if st.session_state.get('signup_done'):
+        st.success(f"Permintaan verifikasi untuk {st.session_state.temp_email} berhasil.")
+        st.warning("Silakan klik link simulasi di bawah untuk membuat password:")
+        st.markdown(f"[✅ KLIK DI SINI UNTUK BUAT PASSWORD](/?token={st.session_state.temp_token})")
+        if st.button("Tutup"):
+            st.session_state.signup_done = False
+            st.rerun()
 
 # --- LOGIN SCREEN ---
 def login_screen():
-    st.markdown("<h2 style='text-align: center;'>Product Recommendation Library</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>Product Library Login</h2>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         with st.form("login_form"):
-            u = st.text_input("Email/Username")
-            p = st.text_input("Password", type="password")
+            user_in = st.text_input("Username / Email")
+            pass_in = st.text_input("Password", type="password")
             if st.form_submit_button("Login"):
-                if u in ADMIN_USERS and ADMIN_USERS[u]["password"] == p:
-                    st.session_state.logged_in, st.session_state.username, st.session_state.role = True, u, "Admin"
-                    log_login(u, "Admin"); st.rerun()
+                if user_in in ADMIN_USERS and ADMIN_USERS[user_in]["password"] == pass_in:
+                    st.session_state.logged_in = True
+                    st.session_state.username = user_in
+                    st.session_state.role = ADMIN_USERS[user_in]["role"]
+                    st.rerun()
                 else:
-                    db = load_registered_users()
-                    match = db[(db['Username'] == u) & (db['Password'] == p) & (db['Verified'] == True)]
+                    users_df = load_registered_users()
+                    match = users_df[(users_df['Username'] == user_in) & 
+                                     (users_df['Password'] == pass_in) & 
+                                     (users_df['Verified'] == True)]
                     if not match.empty:
-                        st.session_state.logged_in, st.session_state.username, st.session_state.role = True, u, "User"
-                        log_login(u, "User"); st.rerun()
-                    else: st.error("Gagal login atau akun belum aktif.")
-        if st.button("Sign Up"): signup_dialog()
-
-def log_login(username, role):
-    wib = datetime.now() + timedelta(hours=7)
-    df = pd.DataFrame([[username, role, wib.strftime("%Y-%m-%d %H:%M:%S")]], columns=["Username", "Role", "Timestamp"])
-    df.to_csv(HISTORY_FILE, mode='a', header=not os.path.exists(HISTORY_FILE), index=False)
+                        st.session_state.logged_in = True
+                        st.session_state.username = user_in
+                        st.session_state.role = match.iloc[0]['Role']
+                        st.rerun()
+                    else:
+                        st.error("Email/Password salah atau akun belum diaktifkan.")
+        st.write("---")
+        if st.button("Belum punya akun? Sign Up"):
+            signup_dialog()
 
 
 def show_history_page():
