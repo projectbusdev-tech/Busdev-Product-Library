@@ -54,9 +54,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CREDENTIALS & USER DATABASE ---
-# Akun admin tetap hardcoded
+ADMIN_USERNAME = st.secrets["admin_credentials"]["username"]
+ADMIN_PASSWORD = st.secrets["admin_credentials"]["password"]
+
 ADMIN_USERS = {
-    "admin": {"password": "admintn1", "role": "Admin"}
+    ADMIN_USERNAME: {"password": ADMIN_PASSWORD, "role": "Admin"}
 }
 
 USER_DB_FILE = "users_db.csv"
