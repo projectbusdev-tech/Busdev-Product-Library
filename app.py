@@ -508,20 +508,21 @@ def main():
         else:
             st.warning("No products match these filters.")
                 
-        if st.session_state.show_dialog and not st.session_state.show_compare:
-            show_detail(st.session_state.detail_row, df)
-        
-        if st.session_state.show_compare:
-            show_comparison(st.session_state.compare_base, df)
-            
-        # --- BAGIAN AKHIR DI MAIN() ---
+        # --- REVISI PEMANGGILAN DIALOG ---
+        # 1. Menangani Popup Detail Produk
         if st.session_state.show_dialog and st.session_state.detail_row is not None:
             show_detail(st.session_state.detail_row, df)
-         # KUNCI PERBAIKAN:
-            # Begitu kode show_detail dijalankan, kita langsung set False.
-            # Karena st.dialog bersifat blocking (muncul di atas), 
-            # baris di bawah ini hanya akan "efektif" saat terjadi rerun berikutnya.
+            # KUNCI PERBAIKAN: Segera set ke False setelah fungsi dipanggil.
+            # Ini akan membersihkan antrean sehingga saat filter sidebar diubah (rerun),
+            # kondisi if ini tidak lagi terpenuhi secara otomatis.
             st.session_state.show_dialog = False
+        
+        # 2. Menangani Popup Perbandingan (Comparison)
+        if st.session_state.show_compare:
+            show_comparison(st.session_state.compare_base, df)
+            # Opsional: Jika popup pembanding juga sering muncul sendiri, 
+            # aktifkan baris di bawah ini:
+            # st.session_state.show_compare = False
 
 if __name__ == "__main__":
     main()
