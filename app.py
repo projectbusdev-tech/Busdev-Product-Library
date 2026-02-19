@@ -65,7 +65,7 @@ HISTORY_FILE = "login_history.csv"
 def load_registered_users():
     if os.path.exists(USER_DB_FILE):
         return pd.read_csv(USER_DB_FILE)
-    # Menambahkan kolom 'Token' untuk alur pembuatan password
+    # Menambahkan kolom 'Token' untuk menyimpan link verifikasi unik
     return pd.DataFrame(columns=["Username", "Password", "Role", "Verified", "Token"])
 
 def save_new_user(email):
@@ -73,13 +73,13 @@ def save_new_user(email):
     if email in users_df['Username'].values:
         return False, "Email sudah terdaftar!", None
     
-    # Generate token unik untuk link verifikasi
+    # Generate token unik
     token = str(uuid.uuid4())
-    # User baru disimpan dengan password kosong dan Verified=False
+    # User baru disimpan dengan password kosong, Verified=False, dan Token unik
     new_entry = pd.DataFrame([[email, "", "User", False, token]], 
                              columns=["Username", "Password", "Role", "Verified", "Token"])
     new_entry.to_csv(USER_DB_FILE, mode='a', header=not os.path.exists(USER_DB_FILE), index=False)
-    return True, "Berhasil!", token
+    return True, "Berhasil mendaftar!", token
 
 def update_user_password(token, new_password):
     users_df = load_registered_users()
@@ -90,52 +90,52 @@ def update_user_password(token, new_password):
         return True
     return False
 
-# --- SCREEN: SET PASSWORD (Halaman Pembuatan Password) ---
+# --- SCREEN: SET PASSWORD (Tampilan setelah klik link verifikasi) ---
 def set_password_screen(token):
-    st.markdown("<h2 style='text-align: center;'>🔐 Buat Password Baru</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>🔐 Aktifkan Akun & Buat Password</h2>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         users_df = load_registered_users()
         user_data = users_df[users_df['Token'] == token]
         
         if user_data.empty:
-            st.error("Token verifikasi tidak valid.")
+            st.error("Token tidak valid atau link sudah kadaluarsa.")
             if st.button("Kembali ke Login"):
                 st.query_params.clear()
                 st.rerun()
             return
 
         email = user_data.iloc[0]['Username']
-        st.info(f"Mengatur password untuk: **{email}**")
+        st.info(f"Email: **{email}**")
         
-        with st.form("set_password_form"):
-            new_pass = st.text_input("Masukkan Password Baru", type="password")
-            confirm_pass = st.text_input("Konfirmasi Password", type="password")
-            btn_save = st.form_submit_button("Simpan & Aktifkan Akun")
+        with st.form("set_pass_form"):
+            new_pass = st.text_input("Buat Password Baru", type="password")
+            conf_pass = st.text_input("Konfirmasi Password Baru", type="password")
+            submit = st.form_submit_button("Simpan & Login")
             
-            if btn_save:
+            if submit:
                 if len(new_pass) < 6:
-                    st.error("Password minimal harus 6 karakter.")
-                elif new_pass != confirm_pass:
+                    st.error("Password minimal 6 karakter.")
+                elif new_pass != conf_pass:
                     st.error("Konfirmasi password tidak cocok.")
                 else:
                     if update_user_password(token, new_pass):
-                        st.success("Password berhasil disimpan! Silakan login.")
-                        st.query_params.clear() # Bersihkan URL
+                        st.success("Akun berhasil diaktifkan!")
+                        st.query_params.clear() # Kembali ke mode login normal
                         st.rerun()
 
 # --- DIALOG SIGN UP ---
 @st.dialog("Sign Up")
 def signup_dialog():
     st.write("Gunakan email @traknus.co.id atau @gmail.com (untuk tes).")
-    email_input = st.text_input("Masukkan Email")
+    email_input = st.text_input("Masukkan Email Anda")
     
     if st.button("Daftar Sekarang"):
         if not email_input:
             st.error("Email tidak boleh kosong.")
-        # Mendukung dua jenis domain sesuai permintaan
+        # Update: Mengizinkan gmail.com untuk keperluan tes sesuai permintaan Anda
         elif not (email_input.endswith("@traknus.co.id") or email_input.endswith("@gmail.com")):
-            st.error("Gunakan email @traknus.co.id atau @gmail.com")
+            st.error("Maaf, pendaftaran hanya diperbolehkan untuk email @traknus.co.id atau @gmail.com")
         else:
             success, msg, token = save_new_user(email_input)
             if success:
@@ -145,11 +145,11 @@ def signup_dialog():
             else:
                 st.warning(msg)
 
-    # Menampilkan pesan sukses persisten di dalam dialog
+    # Pesan sukses yang menetap di dialog dengan link simulasi
     if st.session_state.get('signup_success'):
-        st.success(f"Link verifikasi telah dikirim ke {st.session_state.signup_email}")
+        st.success(f"Permintaan verifikasi telah diproses untuk {st.session_state.signup_email}")
         st.warning("Klik link di bawah ini (Simulasi Email):")
-        # Link simulasi yang membawa token ke URL
+        # Link verifikasi yang memicu parameter 'token' di URL
         st.markdown(f"[✅ Verifikasi Akun & Buat Password](/?token={st.session_state.signup_token})")
         if st.button("Tutup"):
             st.session_state.signup_success = False
@@ -187,15 +187,16 @@ def login_screen():
             submit = st.form_submit_button("Login")
             
             if submit:
+                # Cek Admin
                 if username in ADMIN_USERS and ADMIN_USERS[username]["password"] == password:
                     st.session_state.logged_in = True
                     st.session_state.username = username
                     st.session_state.role = ADMIN_USERS[username]["role"]
                     log_login(username, st.session_state.role)
                     st.rerun()
+                # Cek Database User (Hanya yang sudah Verified=True)
                 else:
                     users_df = load_registered_users()
-                    # Menambahkan pengecekan status Verified
                     match = users_df[(users_df['Username'] == username) & 
                                      (users_df['Password'] == password) & 
                                      (users_df['Verified'] == True)]
@@ -206,13 +207,13 @@ def login_screen():
                         log_login(username, st.session_state.role)
                         st.rerun()
                     else:
-                        st.error("Email/Password salah atau akun belum diverifikasi.")
+                        st.error("Email/Password salah atau akun belum aktif.")
         
         st.write("---")
         if st.button("Sign Up"):
             signup_dialog()
 
-# --- HELPER & DATA FUNCTIONS (Tetap sesuai kode asli Anda) ---
+# --- HELPER FUNCTIONS ---
 def get_actual_col(df, target_name):
     norm_target = re.sub(r'[\s_]+', '', target_name.lower())
     for col in df.columns:
@@ -224,6 +225,7 @@ def clean_list_string(val):
     if pd.isna(val) or str(val).lower() == 'nan': return "-"
     return str(val).replace("[", "").replace("]", "").replace("'", "").strip()
 
+# --- HANDLER LOGIC ---
 def handle_reset():
     st.session_state.show_dialog = False
     st.session_state.show_compare = False
@@ -235,6 +237,7 @@ def click_detail(row):
     st.session_state.show_dialog = True
     st.session_state.show_compare = False
 
+# --- LOAD DATA FUNCTION ---
 @st.cache_data
 def load_data():
     try:
@@ -244,6 +247,7 @@ def load_data():
     df.columns = df.columns.str.strip() 
     return df
 
+# --- IMAGE CHECKER FUNCTION ---
 def get_image_path(filename):
     if pd.isna(filename):
         return "https://via.placeholder.com/300x200?text=No+Image"
@@ -254,7 +258,7 @@ def get_image_path(filename):
             return os.path.join(base_path, clean_name + ext)
     return "https://via.placeholder.com/300x200?text=No+Image"
 
-# --- POPUPS (Tetap sesuai kode asli Anda) ---
+# --- POPUPS ---
 @st.dialog("Compare Product", width="large")
 def show_comparison(base_row, full_df):
     st.write(f"Comparing: **{base_row['Brand']} - {base_row['Model Variations']}**")
@@ -295,6 +299,7 @@ def show_detail(row, full_df):
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
     aisle_w = row.get('Aisle Width (cm)', '-') 
     slope_val = row.get('Max_Slope', '-') 
+
     col_title, col_comp = st.columns([3, 1])
     with col_title: st.header(f"{brand} - {model}")
     with col_comp:
@@ -302,13 +307,14 @@ def show_detail(row, full_df):
             st.session_state.compare_base = row
             st.session_state.show_compare = True
             st.rerun()
+
     st.image(get_image_path(row.get('General Specifications')), width=250) 
     st.markdown("---")
-    c1, c2 = st.columns(2)
-    with c1:
+    col1, col2 = st.columns(2)
+    with col1:
         st.subheader("General Specifications")
         st.write(f"**Product Type:** {row.get('Product_type', '-')}"); st.write(f"**Aisle Width:** :orange[**{aisle_w} cm**]"); st.write(f"**Max. Slope:** :red[**{slope_val}°**]"); st.write(f"**Operation Mode:** {row.get('Operation_mode', '-')}"); st.write(f"**Environment:** {row.get('Environment', '-')}"); st.write(f"**Power Source:** {row.get('Power Source', '-')}")
-    with c2:
+    with col2:
         st.subheader("Dimensions & Weight")
         st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg"); st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm"); st.write(f"**Total Dimensions:** {row.get('Measures_Total', '-')} mm")
     st.markdown("---")
@@ -326,13 +332,13 @@ def show_detail(row, full_df):
 
 # --- MAIN APP ---
 def main():
-    # Inisialisasi State dasar
     if 'logged_in' not in st.session_state: st.session_state.logged_in = False
     if 'form_key' not in st.session_state: st.session_state.form_key = 0
     if 'show_dialog' not in st.session_state: st.session_state.show_dialog = False
     if 'show_compare' not in st.session_state: st.session_state.show_compare = False
 
-    # CEK QUERY PARAMETER (Untuk alur Verifikasi Email)
+    # CEK QUERY PARAMETER (VERIFIKASI EMAIL)
+    # Jika URL mengandung ?token=... maka tampilkan form buat password
     query_params = st.query_params
     if "token" in query_params:
         set_password_screen(query_params["token"])
@@ -342,7 +348,6 @@ def main():
         login_screen()
         return
 
-    # --- KONTEN SETELAH LOGIN ---
     st.sidebar.markdown(f"### Welcome, {st.session_state.username}!")
     pages = ["Product Library"]
     if st.session_state.role == "Admin": pages.append("Login History")
@@ -367,9 +372,8 @@ def main():
         if st.sidebar.button("🔄 Reset Filters"):
             handle_reset(); st.session_state.form_key += 1; st.rerun()
 
-        # Filters logic (tetap sesuai kode asli Anda)
         pilihan_produk = st.sidebar.radio("Brand / Category", ["All", "Manual (Fiorentini)", "Autonomous (Gausium)"], key=f"r_{st.session_state.form_key}")
-        filter_type = st.sidebar.multiselect("Product Type", sorted(df['Product_type'].dropna().unique().tolist()), key=f"t_{st.session_state.form_key}")
+        filter_type = st.sidebar.multiselect("Product Type", sorted(df['Product_type'].dropna().unique().tolist()) if 'Product_type' in df.columns else [], key=f"t_{st.session_state.form_key}")
         filter_env = st.sidebar.multiselect("Environment", get_uniques('Environment'), key=f"e_{st.session_state.form_key}")
         filter_floor = st.sidebar.multiselect("Floor Type", get_uniques('Floor_Type_List'), key=f"f_{st.session_state.form_key}")
         filter_area = st.sidebar.number_input("Target Cleaning Area (m²/5h)", min_value=0, step=100, key=f"a_{st.session_state.form_key}")
@@ -389,14 +393,17 @@ def main():
                 for wst in waste_options:
                     if st.checkbox(wst, key=f"w_{wst}_{st.session_state.form_key}"): selected_wastes.append(wst)
 
-        # Filtering Process
         res = df.copy()
         if pilihan_produk == "Manual (Fiorentini)": res = res[res['Brand'].str.contains("Fiorentini", case=False, na=False)]
         elif pilihan_produk == "Autonomous (Gausium)": res = res[res['Brand'].str.contains("Gausium", case=False, na=False)]
         if filter_type: res = res[res['Product_type'].isin(filter_type)]
         if filter_aisle_cat: res = res[res['Aisle Category'].isin(filter_aisle_cat)]
-        if filter_slope > 0: res = res[pd.to_numeric(res['Max_Slope'], errors='coerce').fillna(0) >= filter_slope]
-        if filter_area > 0: res = res[pd.to_numeric(res['Targeted Cleaning_Area'], errors='coerce').fillna(0) >= filter_area]
+        if filter_slope > 0:
+            res['ts'] = pd.to_numeric(res['Max_Slope'], errors='coerce').fillna(0)
+            res = res[res['ts'] >= filter_slope]
+        if filter_area > 0:
+            res['ta'] = pd.to_numeric(res['Targeted Cleaning_Area'], errors='coerce').fillna(0)
+            res = res[res['ta'] >= filter_area]
 
         def apply_list_filter(dataframe, target_col, selected_vals):
             if not selected_vals: return dataframe
@@ -410,8 +417,7 @@ def main():
         res = apply_list_filter(res, 'Obstacle_List', selected_obstacles)
         res = apply_list_filter(res, 'Waste_Type_List', selected_wastes)
 
-        st.divider()
-        st.subheader(f"Results: {len(res)} Products Found")
+        st.divider(); st.subheader(f"Results: {len(res)} Products Found")
         if len(res) > 0:
             cols = st.columns(3)
             for idx, (index, row) in enumerate(res.iterrows()):
@@ -421,8 +427,7 @@ def main():
                         st.markdown(f"**{row['Brand']}**")
                         st.caption(row.get('Model Variations', '-'))
                         st.button("View Details", key=f"btn_{index}", on_click=click_detail, args=(row,))
-        else:
-            st.warning("No products match these filters.")
+        else: st.warning("No products match these filters.")
                 
         if st.session_state.show_dialog and not st.session_state.show_compare:
             show_detail(st.session_state.detail_row, df)
