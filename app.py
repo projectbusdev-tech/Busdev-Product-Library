@@ -3,7 +3,6 @@ import pandas as pd
 import os
 import re
 import urllib.parse
-import uuid # Tambahan untuk sistem registrasi baru
 from datetime import datetime, timedelta
 
 # --- PAGE CONFIGURATION ---
@@ -23,7 +22,8 @@ st.markdown("""
     .stContainer {
         min-height: 400px; 
         display: flex;
-        flex-direction: column;        justify-content: space-between; 
+        flex-direction: column;
+        justify-content: space-between; 
     }
     .stContainer img {
         height: 200px; 
@@ -53,132 +53,124 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATABASE & AUTH LOGIC (Sistem Registrasi Baru & Anti-Error) ---
-ADMIN_USERS = {"admin": {"password": "admintn1", "role": "Admin"}}
+# --- CREDENTIALS & USER DATABASE ---
+# Akun admin tetap hardcoded
+ADMIN_USERS = {
+    "admin": {"password": "admintn1", "role": "Admin"}
+}
+
 USER_DB_FILE = "users_db.csv"
 HISTORY_FILE = "login_history.csv"
 
 def load_registered_users():
-    cols = ["Username", "Password", "Role", "Verified", "Token"]
     if os.path.exists(USER_DB_FILE):
-        try:
-            df = pd.read_csv(USER_DB_FILE)
-            # Pastikan semua kolom ada (Anti-Error Format)
-            for col in cols:
-                if col not in df.columns:
-                    df[col] = None if col != "Verified" else False
-            return df
-        except Exception:
-            # Jika file rusak (ParserError), hapus dan buat baru agar aplikasi tidak crash
-            if os.path.exists(USER_DB_FILE):
-                os.remove(USER_DB_FILE)
-            return pd.DataFrame(columns=cols)
-    return pd.DataFrame(columns=cols)
+        return pd.read_csv(USER_DB_FILE)
+    return pd.DataFrame(columns=["Username", "Password", "Role", "Verified"])
 
 def save_new_user(email):
     users_df = load_registered_users()
-    if not users_df.empty and email in users_df['Username'].values:
-        return False, "Email ini sudah terdaftar.", None
+    if email in users_df['Username'].values:
+        return False, "Email sudah terdaftar!"
     
-    token = str(uuid.uuid4())
-    new_user = {
-        "Username": email, "Password": "", "Role": "User", "Verified": False, "Token": token
-    }
-    new_df = pd.concat([users_df, pd.DataFrame([new_user])], ignore_index=True)
-    new_df.to_csv(USER_DB_FILE, index=False)
-    return True, "Berhasil!", token
-
-def update_user_password(token, new_password):
-    users_df = load_registered_users()
-    if token in users_df['Token'].values:
-        users_df.loc[users_df['Token'] == token, 'Password'] = new_password
-        users_df.loc[users_df['Token'] == token, 'Verified'] = True
-        users_df.to_csv(USER_DB_FILE, index=False)
-        return True
-    return False
-
-# --- SCREEN: SET PASSWORD (Aktivasi via Link) ---
-def set_password_screen(token):
-    st.markdown("<h2 style='text-align: center;'>🔐 Aktivasi Akun Baru</h2>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        users_df = load_registered_users()
-        user_data = users_df[users_df['Token'] == token]
-        if user_data.empty:
-            st.error("Token tidak valid."); st.button("Kembali ke Login", on_click=lambda: st.query_params.clear())
-            return
-        
-        st.info(f"Mengatur password untuk: **{user_data.iloc[0]['Username']}**")
-        with st.form("form_set_password"):
-            p1 = st.text_input("Password Baru", type="password")
-            p2 = st.text_input("Konfirmasi Password", type="password")
-            if st.form_submit_button("Aktifkan Akun"):
-                if len(p1) < 6: st.error("Password minimal 6 karakter.")
-                elif p1 != p2: st.error("Password tidak cocok.")
-                else:
-                    if update_user_password(token, p1):
-                        st.success("Akun berhasil diaktifkan! Silakan login."); st.query_params.clear(); st.rerun()
+    # Simpan user baru (Default password: usertn1 untuk kemudahan demo ini)
+    new_entry = pd.DataFrame([[email, "usertn1", "User", True]], columns=["Username", "Password", "Role", "Verified"])
+    new_entry.to_csv(USER_DB_FILE, mode='a', header=not os.path.exists(USER_DB_FILE), index=False)
+    return True, "Berhasil mendaftar! Silakan cek email Anda untuk verifikasi (Simulasi)."
 
 # --- DIALOG SIGN UP ---
-@st.dialog("Pendaftaran Akun")
+@st.dialog("Sign Up")
 def signup_dialog():
-    st.write("Gunakan email @traknus.co.id atau @gmail.com.")
-    email_input = st.text_input("Masukkan Email")
-    if st.button("Daftar"):
-        if not email_input: st.error("Email tidak boleh kosong.")
-        elif not (email_input.endswith("@traknus.co.id") or email_input.endswith("@gmail.com")):
-            st.error("Gunakan email resmi atau gmail untuk tes.")
-        else:
-            success, msg, token = save_new_user(email_input)
-            if success:
-                st.session_state.signup_success = True
-                st.session_state.temp_token = token
-            else: st.warning(msg)
+    st.write("Daftar akun baru menggunakan email korporat Anda.")
+    email_input = st.text_input("Email (@traknus.co.id)")
     
-    if st.session_state.get('signup_success'):
-        st.success("Pendaftaran berhasil dicatat!")
-        st.markdown(f"**Link Aktivasi (Simulasi Email):**")
-        st.markdown(f"[✅ KLIK DI SINI UNTUK BUAT PASSWORD](/?token={st.session_state.temp_token})")
-        if st.button("Tutup"): st.session_state.signup_success = False; st.rerun()
+    if st.button("Daftar Sekarang"):
+        if not email_input:
+            st.error("Email tidak boleh kosong.")
+        elif not email_input.endswith("@traknus.co.id"):
+            st.error("Maaf, hanya email dengan akhiran @traknus.co.id yang diperbolehkan.")
+        else:
+            success, msg = save_new_user(email_input)
+            if success:
+                st.success(msg)
+                st.info("Gunakan email Anda sebagai username untuk login.")
+                if st.button("Tutup"):
+                    st.rerun()
+            else:
+                st.warning(msg)
 
-# --- FUNGSI ASLI (DIPERTAHANKAN) ---
+# --- HISTORY LOGIC ---
 def log_login(username, role):
     wib_now = datetime.now() + timedelta(hours=7) 
     now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
+    
     new_entry = pd.DataFrame([[username, role, now_str]], columns=["Username", "Role", "Timestamp"])
-    new_entry.to_csv(HISTORY_FILE, mode='a', header=not os.path.exists(HISTORY_FILE), index=False)
+    if not os.path.isfile(HISTORY_FILE):
+        new_entry.to_csv(HISTORY_FILE, index=False)
+    else:
+        new_entry.to_csv(HISTORY_FILE, mode='a', header=False, index=False)
+
+def show_history_page():
+    st.title("📜 Login History")
+    if os.path.exists(HISTORY_FILE):
+        history_df = pd.read_csv(HISTORY_FILE)
+        st.dataframe(history_df.iloc[::-1], use_container_width=True)
+        if st.button("Clear History"):
+            os.remove(HISTORY_FILE)
+            st.rerun()
+    else:
+        st.info("No login history available.")
 
 def login_screen():
-    st.markdown("<h2 style='text-align: center;'>Product Recommendation Library</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>Product Library</h2>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         with st.form("login_form"):
             username = st.text_input("Username / Email")
             password = st.text_input("Password", type="password")
-            if st.form_submit_button("Login"):
+            submit = st.form_submit_button("Login")
+            
+            if submit:
+                # Cek Admin Hardcoded
                 if username in ADMIN_USERS and ADMIN_USERS[username]["password"] == password:
-                    st.session_state.logged_in, st.session_state.username, st.session_state.role = True, username, "Admin"
-                    log_login(username, "Admin"); st.rerun()
+                    st.session_state.logged_in = True
+                    st.session_state.username = username
+                    st.session_state.role = ADMIN_USERS[username]["role"]
+                    log_login(username, st.session_state.role)
+                    st.success("Login Berhasil sebagai Admin!")
+                    st.rerun()
+                
+                # Cek Database User Terdaftar
                 else:
                     users_df = load_registered_users()
-                    match = users_df[(users_df['Username'] == username) & (users_df['Password'] == password) & (users_df['Verified'] == True)]
+                    match = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
                     if not match.empty:
-                        st.session_state.logged_in, st.session_state.username, st.session_state.role = True, username, "User"
-                        log_login(username, "User"); st.rerun()
-                    else: st.error("Email/Password salah atau akun belum aktif.")
+                        st.session_state.logged_in = True
+                        st.session_state.username = username
+                        st.session_state.role = match.iloc[0]['Role']
+                        log_login(username, st.session_state.role)
+                        st.success("Login Berhasil!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid Username or Password")
+        
+        # Tombol Sign Up di luar form
         st.write("---")
-        if st.button("Belum punya akun? Sign Up"): signup_dialog()
+        if st.button("Sign Up"):
+            signup_dialog()
 
+# --- HELPER FUNCTIONS ---
 def get_actual_col(df, target_name):
     norm_target = re.sub(r'[\s_]+', '', target_name.lower())
     for col in df.columns:
-        if re.sub(r'[\s_]+', '', col.lower()) == norm_target: return col
+        if re.sub(r'[\s_]+', '', col.lower()) == norm_target:
+            return col
     return None
 
 def clean_list_string(val):
     if pd.isna(val) or str(val).lower() == 'nan': return "-"
     return str(val).replace("[", "").replace("]", "").replace("'", "").strip()
 
+# --- HANDLER LOGIC ---
 def handle_reset():
     st.session_state.show_dialog = False
     st.session_state.show_compare = False
@@ -190,6 +182,7 @@ def click_detail(row):
     st.session_state.show_dialog = True
     st.session_state.show_compare = False
 
+# --- LOAD DATA FUNCTION ---
 @st.cache_data
 def load_data():
     try:
@@ -199,8 +192,10 @@ def load_data():
     df.columns = df.columns.str.strip() 
     return df
 
+# --- IMAGE CHECKER FUNCTION ---
 def get_image_path(filename):
-    if pd.isna(filename): return "https://via.placeholder.com/300x200?text=No+Image"
+    if pd.isna(filename):
+        return "https://via.placeholder.com/300x200?text=No+Image"
     base_path = os.path.join("static", "images")
     clean_name = str(filename).strip()
     for ext in [".jpg", ".png"]:
@@ -208,162 +203,266 @@ def get_image_path(filename):
             return os.path.join(base_path, clean_name + ext)
     return "https://via.placeholder.com/300x200?text=No+Image"
 
-# --- POPUPS (DIPERTAHANKAN) ---
+# --- PRODUCT COMPARISON POPUP ---
 @st.dialog("Compare Product", width="large")
 def show_comparison(base_row, full_df):
     st.write(f"Comparing: **{base_row['Brand']} - {base_row['Model Variations']}**")
+    
     other_products = full_df[full_df['General Specifications'] != base_row['General Specifications']].copy()
     other_products['Display_Name'] = other_products['Brand'] + " - " + other_products['Model Variations'].fillna("")
-    selected_names = st.multiselect("Select up to 2 products to compare with:", options=other_products['Display_Name'].unique(), max_selections=2)
     
-    labels = ["Product Type", "Aisle Width", "Max Slope", "Net Weight", "Dimensions (L/W/H)", "Operation Mode", "Power Source"]
-    data = {"Parameter": labels}
+    selected_names = st.multiselect(
+        "Select up to 2 products to compare:", 
+        options=other_products['Display_Name'].unique(),
+        max_selections=2
+    )
     
-    def extract_specs(row):
-        return [row.get('Product_type','-'), f"{row.get('Aisle Width (cm)','-')} cm", f"{row.get('Max_Slope','-')}°", f"{row.get('Net Weight (kg)','-')} Kg", f"{row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm", row.get('Operation_mode','-'), row.get('Power Source','-')]
+    labels = [
+        "Product Type", "Aisle Width", "Max Slope", "Net Weight", 
+        "Dimensions (L/W/H)", "Total Dimensions (mm)", "Operation Mode",
+        "Environment", "Power Source", "Application Location",
+        "Floor Type", "Obstacle", "Waste Type"
+    ]
+    
+    def extract_compare_data(row):
+        dims = f"{row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm"
+        return [
+            row.get('Product_type', '-'),
+            f"{row.get('Aisle Width (cm)', '-')} cm",
+            f"{row.get('Max_Slope', '-')}°",
+            f"{row.get('Net Weight (kg)', '-')} Kg",
+            dims,
+            row.get('Measures_Total', '-'),
+            row.get('Operation_mode', '-'),
+            row.get('Environment', '-'),
+            row.get('Power Source', '-'),
+            clean_list_string(row.get(get_actual_col(full_df, 'Processed_Locations'))),
+            clean_list_string(row.get(get_actual_col(full_df, 'Floor_Type_List'))),
+            clean_list_string(row.get(get_actual_col(full_df, 'Obstacle_List'))),
+            clean_list_string(row.get(get_actual_col(full_df, 'Waste_Type_List')))
+        ]
 
-    data[f"Current: {base_row['Brand']}"] = extract_specs(base_row)
+    data = {"Parameter": labels}
+    base_model = base_row.get('Model Variations', '')
+    base_model_str = f" - {base_model}" if pd.notna(base_model) and base_model != "" else ""
+    data[f"Current: {base_row['Brand']}{base_model_str}"] = extract_compare_data(base_row)
+    
+    selected_rows = []
     for i, name in enumerate(selected_names):
         comp_row = other_products[other_products['Display_Name'] == name].iloc[0]
-        data[f"Product {i+2}: {name}"] = extract_specs(comp_row)
+        selected_rows.append(comp_row)
+        data[f"Product {i+2}: {name}"] = extract_compare_data(comp_row)
     
-    st.table(pd.DataFrame(data).set_index("Parameter"))
-    if st.button("Close Comparison"): st.session_state.show_compare = False; st.rerun()
+    num_cols = len(selected_names) + 1
+    image_cols = st.columns([1.2] + [2] * num_cols)
+    
+    with image_cols[1]:
+        with st.container():
+            st.image(get_image_path(base_row.get('General Specifications')), use_container_width=True)
+    
+    for i, comp_row in enumerate(selected_rows):
+        with image_cols[i+2]:
+            with st.container():
+                st.image(get_image_path(comp_row.get('General Specifications')), use_container_width=True)
 
+    st.table(pd.DataFrame(data).set_index("Parameter"))
+    
+    if st.button("Close Comparison"):
+        st.session_state.show_compare = False
+        st.rerun()
+
+# --- PRODUCT DETAIL POPUP ---
 @st.dialog("Product Details", width="large")
 def show_detail(row, full_df):
-    col_title, col_compare = st.columns([3, 1])
-    with col_title: st.header(f"{row['Brand']} - {row['Model Variations']}")
-    with col_compare: 
+    brand = row['Brand'] if not pd.isna(row['Brand']) else "-"
+    model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
+    aisle_w = row.get('Aisle Width (cm)', '-') 
+    slope_val = row.get('Max_Slope', '-') 
+
+    col_title, col_comp = st.columns([3, 1])
+    with col_title:
+        st.header(f"{brand} - {model}")
+    with col_comp:
         if st.button("🔄 Compare Product", type="primary"):
             st.session_state.compare_base = row
-            st.session_state.show_compare = True; st.rerun()
+            st.session_state.show_compare = True
+            st.rerun()
 
-    st.image(get_image_path(row.get('General Specifications')), width=250)
-    st.markdown("---")
+    st.image(get_image_path(row.get('General Specifications')), width=250) 
     
+    st.markdown("---")
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("General Specifications")
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
-        st.write(f"**Aisle Width (cm):** {row.get('Aisle Width (cm)', '-')}")
-        st.write(f"**Max. Slope:** {row.get('Max_Slope', '-')}")
+        st.write(f"**Aisle Width:** :orange[**{aisle_w} cm**]") 
+        st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
         st.write(f"**Operation Mode:** {row.get('Operation_mode', '-')}")
+        st.write(f"**Environment:** {row.get('Environment', '-')}")
+        st.write(f"**Power Source:** {row.get('Power Source', '-')}")
+        
     with col2:
         st.subheader("Dimensions & Weight")
-        st.write(f"**Net Weight (kg):** {row.get('Net Weight (kg)', '-')}")
-        st.write(f"**Dimensions (LxWxH):** {row.get('Measures_L', '-')}/{row.get('Measures_W', '-')}/{row.get('Measures_H', '-')} mm")
-        st.write(f"**Power Source:** {row.get('Power Source', '-')}")
+        st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg")
+        st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
+        st.write(f"**Total Dimensions:** {row.get('Measures_Total', '-')} mm")
 
-    st.subheader("Feature List")
-    st.write(f"**Environment:** {clean_list_string(row.get('Environment'))}")
-    st.write(f"**Floor Type:** {clean_list_string(row.get('Floor_Type_List'))}")
-    st.write(f"**Obstacles:** {clean_list_string(row.get('Obstacle_List'))}")
-    st.write(f"**Waste Type:** {clean_list_string(row.get('Waste_Type_List'))}")
-
+    st.markdown("---")
+    
     spec_name = str(row.get('General Specifications', '')).strip()
     found_path = os.path.join("static", "brochures", f"{spec_name}.pdf")
+    spec_name_encoded = urllib.parse.quote(spec_name)
+    
     if os.path.exists(found_path):
-        with open(found_path, "rb") as f:
-            st.download_button(label="📄 Download Brochure (PDF)", data=f, file_name=f"{spec_name}.pdf", mime="application/pdf")
+        col_dl, col_wa, col_email = st.columns(3) 
+        with col_dl:
+            with open(found_path, "rb") as pdf_file:
+                st.download_button(label="📄 Download Brochure", data=pdf_file, file_name=f"{spec_name}.pdf", mime="application/pdf")
+
+        public_url = f"{GITHUB_RAW_BASE}static/brochures/{spec_name_encoded}.pdf" 
+        subject_mail = f"Product Specs: {brand} - {model}"
+        share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
+        
+        with col_wa:
+            st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button wa-button">📲 WhatsApp</a>', unsafe_allow_html=True)
+        with col_email:
+            st.markdown(f'<a href="mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button email-button">📧 Email</a>', unsafe_allow_html=True)
     else:
-        st.info("Brochure file not available for download.")
+        st.info("Digital brochure is not yet available.")
 
 # --- MAIN APP ---
 def main():
     if 'logged_in' not in st.session_state: st.session_state.logged_in = False
+    if 'form_key' not in st.session_state: st.session_state.form_key = 0
     if 'show_dialog' not in st.session_state: st.session_state.show_dialog = False
     if 'show_compare' not in st.session_state: st.session_state.show_compare = False
-    if 'form_key' not in st.session_state: st.session_state.form_key = 0
-
-    # Cek token aktivasi
-    if "token" in st.query_params:
-        set_password_screen(st.query_params["token"]); return
 
     if not st.session_state.logged_in:
-        login_screen(); return
+        login_screen()
+        return
 
-    # SIDEBAR
     st.sidebar.markdown(f"### Welcome, {st.session_state.username}!")
-    if st.sidebar.button("🚪 Logout"): st.session_state.logged_in = False; st.rerun()
-
-    df = load_data()
-    st.sidebar.header("🎛️ Search Filters")
-    if st.sidebar.button("🔄 Reset Filters"): handle_reset(); st.session_state.form_key += 1; st.rerun()
-
-    pilihan_produk = st.sidebar.radio("Brand / Category", ["All", "Manual (Fiorentini)", "Autonomous (Gausium)"], key=f"r_{st.session_state.form_key}")
-    filter_type = st.sidebar.multiselect("Product Type", sorted(df['Product_type'].dropna().unique().tolist()), key=f"t_{st.session_state.form_key}")
+    st.sidebar.caption(f"Role: {st.session_state.role}")
     
-    def get_uniques(col_name):
-        actual = get_actual_col(df, col_name)
-        if actual:
-            temp = df[actual].dropna().astype(str).str.replace(r"[\[\]']", '', regex=True)
-            return sorted([i for i in temp.str.split(',').explode().str.strip().unique() if i and i.lower() != 'nan'])
-        return []
-
-    filter_env = st.sidebar.multiselect("Environment", get_uniques('Environment'), key=f"e_{st.session_state.form_key}")
-    filter_floor = st.sidebar.multiselect("Floor Type", get_uniques('Floor_Type_List'), key=f"f_{st.session_state.form_key}")
-    selected_obstacles = st.sidebar.multiselect("Obstacles", get_uniques('Obstacle_List'), key=f"o_{st.session_state.form_key}")
-    selected_wastes = st.sidebar.multiselect("Waste Type", get_uniques('Waste_Type_List'), key=f"w_{st.session_state.form_key}")
-    filter_area = st.sidebar.number_input("Target Cleaning Area (m²/5h)", min_value=0, step=100, key=f"a_{st.session_state.form_key}")
-    filter_slope = st.sidebar.number_input("Max Slope (°)", min_value=0, step=1, key=f"s_{st.session_state.form_key}")
-
-    # ADMIN MENU (DIPERTAHANKAN)
+    pages = ["Product Library"]
     if st.session_state.role == "Admin":
-        st.sidebar.markdown("---")
-        st.sidebar.subheader("👑 Admin Menu")
-        if st.sidebar.button("📊 View Login History"):
-            if os.path.exists(HISTORY_FILE):
-                st.session_state.show_history = True
-            else: st.sidebar.warning("No history yet.")
-        
-        if st.session_state.get("show_history"):
-            @st.dialog("Login History", width="large")
-            def history_dialog():
-                hist_df = pd.read_csv(HISTORY_FILE)
-                st.dataframe(hist_df.sort_values(by="Timestamp", ascending=False), use_container_width=True)
-                if st.button("Close History"): st.session_state.show_history = False; st.rerun()
-            history_dialog()
-
-    # LOGIKA FILTERING (DIPERTAHANKAN)
-    res = df.copy()
-    if pilihan_produk == "Manual (Fiorentini)": res = res[res['Brand'].str.contains("Fiorentini", case=False, na=False)]
-    elif pilihan_produk == "Autonomous (Gausium)": res = res[res['Brand'].str.contains("Gausium", case=False, na=False)]
-    if filter_type: res = res[res['Product_type'].isin(filter_type)]
-    if filter_slope > 0:
-        res['ts'] = pd.to_numeric(res['Max_Slope'], errors='coerce').fillna(0)
-        res = res[res['ts'] >= filter_slope]
-
-    def apply_list_filter(dataframe, target_col, selected_vals):
-        if not selected_vals: return dataframe
-        actual = get_actual_col(dataframe, target_col)
-        if not actual: return dataframe
-        pattern = "|".join([re.escape(str(v)) for v in selected_vals])
-        return dataframe[dataframe[actual].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
-
-    res = apply_list_filter(res, 'Environment', filter_env)
-    res = apply_list_filter(res, 'Floor_Type_List', filter_floor)
-    res = apply_list_filter(res, 'Obstacle_List', selected_obstacles)
-    res = apply_list_filter(res, 'Waste_Type_List', selected_wastes)
-
-    st.divider()
-    st.subheader(f"Results: {len(res)} Products Found")
+        pages.append("Login History")
     
-    if len(res) > 0:
-        cols = st.columns(3)
-        for idx, (index, row) in enumerate(res.iterrows()):
-            with cols[idx % 3]:
-                with st.container(border=True):
-                    st.image(get_image_path(row['General Specifications']))
-                    st.markdown(f"**{row['Brand']}**")
-                    st.caption(row.get('Model Variations', '-'))
-                    st.button("View Details", key=f"btn_{index}", on_click=click_detail, args=(row,))
-    else: st.warning("No products match these filters.")
-            
-    if st.session_state.show_dialog and not st.session_state.show_compare:
-        show_detail(st.session_state.detail_row, df)
-    if st.session_state.show_compare:
-        show_comparison(st.session_state.compare_base, df)
+    selected_page = st.sidebar.selectbox("Navigate to", pages)
+
+    if st.sidebar.button("🚪 Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
+
+    if selected_page == "Login History":
+        show_history_page()
+    else:
+        df = load_data()
+
+        def get_uniques(col_name):
+            actual = get_actual_col(df, col_name)
+            if actual:
+                temp = df[actual].dropna().astype(str).str.replace(r"[\[\]']", '', regex=True)
+                all_items = temp.str.split(',').explode().str.strip()
+                return sorted([i for i in all_items.unique() if i and i.lower() != 'nan'])
+            return []
+
+        st.sidebar.header("🎛️ Search Filters")
+        if st.sidebar.button("🔄 Reset Filters"):
+            handle_reset()
+            st.session_state.form_key += 1
+            st.rerun()
+
+        # --- REORDERED FILTERS ---
+        # 1. Brand/Category
+        pilihan_produk = st.sidebar.radio("Brand / Category", ["All", "Manual (Fiorentini)", "Autonomous (Gausium)"], key=f"radio_{st.session_state.form_key}")
+        
+        # 2. Product Type
+        filter_type = st.sidebar.multiselect("Product Type", sorted(df['Product_type'].dropna().unique().tolist()) if 'Product_type' in df.columns else [], key=f"type_{st.session_state.form_key}")
+        
+        # 3. Environment
+        filter_env = st.sidebar.multiselect("Environment", get_uniques('Environment'), key=f"env_{st.session_state.form_key}")
+        
+        # 4. Floor Type
+        filter_floor = st.sidebar.multiselect("Floor Type", get_uniques('Floor_Type_List'), key=f"floor_{st.session_state.form_key}")
+        
+        # 5. Target Cleaning Area (m²/5h)
+        filter_area = st.sidebar.number_input("Target Cleaning Area (m²/5h)", min_value=0, step=100, key=f"area_{st.session_state.form_key}")
+        
+        # 6. Max Slope
+        filter_slope = st.sidebar.number_input("Max Slope (°)", min_value=0, step=1, key=f"slope_{st.session_state.form_key}")
+        
+        # 7. Aisle Category
+        filter_aisle_cat = st.sidebar.multiselect("Aisle Category", get_uniques('Aisle Category'), key=f"aisle_{st.session_state.form_key}")
+
+        # 8. Obstacle 
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("Obstacle Selection")
+        obs_options = get_uniques('Obstacle_List')
+        selected_obstacles = []
+        if obs_options:
+            with st.sidebar.expander(f"Select Obstacles ({len(obs_options)})"):
+                for obs in obs_options:
+                    if st.checkbox(obs, key=f"chk_obs_{obs}_{st.session_state.form_key}"):
+                        selected_obstacles.append(obs)
+
+        # 9. Waste Type
+        st.sidebar.subheader("Waste Type Selection")
+        waste_options = get_uniques('Waste_Type_List')
+        selected_wastes = []
+        if waste_options:
+            with st.sidebar.expander(f"Select Waste Types ({len(waste_options)})"):
+                for wst in waste_options:
+                    if st.checkbox(wst, key=f"chk_wst_{wst}_{st.session_state.form_key}"):
+                        selected_wastes.append(wst)
+
+        # --- APPLY FILTERS ---
+        res = df.copy()
+        if pilihan_produk == "Manual (Fiorentini)":
+            res = res[res['Brand'].str.contains("Fiorentini", case=False, na=False)]
+        elif pilihan_produk == "Autonomous (Gausium)":
+            res = res[res['Brand'].str.contains("Gausium", case=False, na=False)]
+        if filter_type: res = res[res['Product_type'].isin(filter_type)]
+        if filter_aisle_cat: res = res[res['Aisle Category'].isin(filter_aisle_cat)]
+        if filter_slope > 0:
+            res['temp_slope'] = pd.to_numeric(res['Max_Slope'], errors='coerce').fillna(0)
+            res = res[res['temp_slope'] >= filter_slope]
+        if filter_area > 0:
+            res['Targeted Cleaning_Area'] = pd.to_numeric(res['Targeted Cleaning_Area'], errors='coerce').fillna(0)
+            res = res[res['Targeted Cleaning_Area'] >= filter_area]
+
+        def apply_list_filter(dataframe, target_col, selected_vals):
+            if not selected_vals: return dataframe
+            actual = get_actual_col(dataframe, target_col)
+            if not actual: return dataframe
+            pattern = "|".join([re.escape(str(v)) for v in selected_vals])
+            return dataframe[dataframe[actual].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
+
+        res = apply_list_filter(res, 'Environment', filter_env)
+        res = apply_list_filter(res, 'Floor_Type_List', filter_floor)
+        res = apply_list_filter(res, 'Obstacle_List', selected_obstacles)
+        res = apply_list_filter(res, 'Waste_Type_List', selected_wastes)
+
+        st.divider()
+        st.subheader(f"Results: {len(res)} Products Found")
+        
+        if len(res) > 0:
+            cols = st.columns(3)
+            for idx, (index, row) in enumerate(res.iterrows()):
+                with cols[idx % 3]:
+                    with st.container(border=True):
+                        st.image(get_image_path(row['General Specifications']))
+                        st.markdown(f"**{row['Brand']}**")
+                        st.caption(row.get('Model Variations', '-'))
+                        st.button("View Details", key=f"btn_{index}", on_click=click_detail, args=(row,))
+        else:
+            st.warning("No products match these filters.")
+                
+        if st.session_state.show_dialog and not st.session_state.show_compare:
+            show_detail(st.session_state.detail_row, df)
+        
+        if st.session_state.show_compare:
+            show_comparison(st.session_state.compare_base, df)
 
 if __name__ == "__main__":
     main()
