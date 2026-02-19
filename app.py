@@ -325,6 +325,7 @@ def show_detail(row, full_df):
         if st.button("🔄 Compare Product", type="primary"):
             st.session_state.compare_base = row
             st.session_state.show_compare = True
+            st.session_state.show_dialog = False # Reset status dialog detail
             st.rerun()
 
     st.image(get_image_path(row.get('General Specifications')), width=250) 
@@ -368,6 +369,15 @@ def show_detail(row, full_df):
             st.markdown(f'<a href="mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button email-button">📧 Email</a>', unsafe_allow_html=True)
     else:
         st.info("Digital brochure is not yet available.")
+
+
+    st.markdown("---")
+    
+    # TAMBAHKAN TOMBOL CLOSE MANUAL
+    if st.button("Tutup Detail"):
+        st.session_state.show_dialog = False
+        st.session_state.detail_row = None
+        st.rerun()
 
 # --- MAIN APP ---
 def main():
@@ -504,8 +514,14 @@ def main():
         if st.session_state.show_compare:
             show_comparison(st.session_state.compare_base, df)
             
+        # --- BAGIAN AKHIR DI MAIN() ---
         if st.session_state.show_dialog and st.session_state.detail_row is not None:
             show_detail(st.session_state.detail_row, df)
+         # KUNCI PERBAIKAN:
+            # Begitu kode show_detail dijalankan, kita langsung set False.
+            # Karena st.dialog bersifat blocking (muncul di atas), 
+            # baris di bawah ini hanya akan "efektif" saat terjadi rerun berikutnya.
+            st.session_state.show_dialog = False
 
 if __name__ == "__main__":
     main()
