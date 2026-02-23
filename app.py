@@ -245,6 +245,7 @@ def load_data():
         df['Product_type'] = df['Product_type'].astype(str).str.strip()
     return df
 
+# --- IMAGE CHECKER FUNCTION ---
 def get_image_path(filename):
     if pd.isna(filename):
         return "https://via.placeholder.com/300x200?text=No+Image"
@@ -255,59 +256,135 @@ def get_image_path(filename):
             return os.path.join(base_path, clean_name + ext)
     return "https://via.placeholder.com/300x200?text=No+Image"
 
-# --- POPUP DIALOGS ---
+# --- PRODUCT COMPARISON POPUP ---
 @st.dialog("Compare Product", width="large")
 def show_comparison(base_row, full_df):
     st.write(f"Comparing: **{base_row['Brand']} - {base_row['Model Variations']}**")
+    
     other_products = full_df[full_df['General Specifications'] != base_row['General Specifications']].copy()
     other_products['Display_Name'] = other_products['Brand'] + " - " + other_products['Model Variations'].fillna("")
     
-    selected_names = st.multiselect("Select up to 2 products:", options=other_products['Display_Name'].unique(), max_selections=2)
+    selected_names = st.multiselect(
+        "Select up to 2 products to compare:", 
+        options=other_products['Display_Name'].unique(),
+        max_selections=2
+    )
     
-    labels = ["Product Type", "Aisle Width", "Max Slope", "Net Weight", "Dimensions", "Total Dim", "Operation", "Env", "Power", "Location", "Floor", "Obstacle", "Waste"]
+    labels = [
+        "Product Type", "Aisle Width", "Max Slope", "Net Weight", 
+        "Dimensions (L/W/H)", "Total Dimensions (mm)", "Operation Mode",
+        "Environment", "Power Source", "Application Location",
+        "Floor Type", "Obstacle", "Waste Type"
+    ]
     
     def extract_compare_data(row):
-        return [row.get('Product_type', '-'), f"{row.get('Aisle Width (cm)', '-')} cm", f"{row.get('Max_Slope', '-')}°", f"{row.get('Net Weight (kg)', '-')} Kg", 
-                f"{row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm", row.get('Measures_Total', '-'), row.get('Operation_mode', '-'), 
-                row.get('Environment', '-'), row.get('Power Source', '-'), clean_list_string(row.get(get_actual_col(full_df, 'Processed_Locations'))),
-                clean_list_string(row.get(get_actual_col(full_df, 'Floor_Type_List'))), clean_list_string(row.get(get_actual_col(full_df, 'Obstacle_List'))),
-                clean_list_string(row.get(get_actual_col(full_df, 'Waste_Type_List')))]
+        dims = f"{row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm"
+        return [
+            row.get('Product_type', '-'),
+            f"{row.get('Aisle Width (cm)', '-')} cm",
+            f"{row.get('Max_Slope', '-')}°",
+            f"{row.get('Net Weight (kg)', '-')} Kg",
+            dims,
+            row.get('Measures_Total', '-'),
+            row.get('Operation_mode', '-'),
+            row.get('Environment', '-'),
+            row.get('Power Source', '-'),
+            clean_list_string(row.get(get_actual_col(full_df, 'Processed_Locations'))),
+            clean_list_string(row.get(get_actual_col(full_df, 'Floor_Type_List'))),
+            clean_list_string(row.get(get_actual_col(full_df, 'Obstacle_List'))),
+            clean_list_string(row.get(get_actual_col(full_df, 'Waste_Type_List')))
+        ]
 
     data = {"Parameter": labels}
-    data[f"Current: {base_row['Brand']}"] = extract_compare_data(base_row)
+    base_model = base_row.get('Model Variations', '')
+    base_model_str = f" - {base_model}" if pd.notna(base_model) and base_model != "" else ""
+    data[f"Current: {base_row['Brand']}{base_model_str}"] = extract_compare_data(base_row)
+    
+    selected_rows = []
     for i, name in enumerate(selected_names):
         comp_row = other_products[other_products['Display_Name'] == name].iloc[0]
+        selected_rows.append(comp_row)
         data[f"Product {i+2}: {name}"] = extract_compare_data(comp_row)
     
+    num_cols = len(selected_names) + 1
+    image_cols = st.columns([1.2] + [2] * num_cols)
+    
+    with image_cols[1]:
+        with st.container():
+            st.image(get_image_path(base_row.get('General Specifications')), use_container_width=True)
+    
+    for i, comp_row in enumerate(selected_rows):
+        with image_cols[i+2]:
+            with st.container():
+                st.image(get_image_path(comp_row.get('General Specifications')), use_container_width=True)
+
     st.table(pd.DataFrame(data).set_index("Parameter"))
+    
     if st.button("Close Comparison"):
         st.session_state.show_compare = False
         st.rerun()
 
+# --- PRODUCT DETAIL POPUP ---
 @st.dialog("Product Details", width="large")
 def show_detail(row, full_df):
+    brand = row['Brand'] if not pd.isna(row['Brand']) else "-"
+    model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
+    aisle_w = row.get('Aisle Width (cm)', '-') 
+    slope_val = row.get('Max_Slope', '-') 
+
     col_title, col_comp = st.columns([3, 1])
-    col_title.header(f"{row['Brand']} - {row['Model Variations']}")
+    with col_title:
+        st.header(f"{brand} - {model}")
     with col_comp:
         if st.button("🔄 Compare Product", type="primary"):
             st.session_state.compare_base = row
             st.session_state.show_compare = True
-            st.session_state.show_dialog = False
+            st.session_state.show_dialog = False # Reset status dialog detail
             st.rerun()
 
-    st.image(get_image_path(row.get('General Specifications')), width=250)
+    st.image(get_image_path(row.get('General Specifications')), width=250) 
+    
     st.markdown("---")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.subheader("Specifications")
-        st.write(f"**Type:** {row.get('Product_type', '-')}")
-        st.write(f"**Aisle Width:** {row.get('Aisle Width (cm)', '-')} cm")
-        st.write(f"**Max Slope:** {row.get('Max_Slope', '-')}°")
-    with c2:
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("General Specifications")
+        st.write(f"**Product Type:** {row.get('Product_type', '-')}")
+        st.write(f"**Aisle Width:** :orange[**{aisle_w} cm**]") 
+        st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
+        st.write(f"**Operation Mode:** {row.get('Operation_mode', '-')}")
+        st.write(f"**Environment:** {row.get('Environment', '-')}")
+        st.write(f"**Power Source:** {row.get('Power Source', '-')}")
+        
+    with col2:
         st.subheader("Dimensions & Weight")
         st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg")
+        st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
         st.write(f"**Total Dimensions:** {row.get('Measures_Total', '-')} mm")
+
+    st.markdown("---")
     
+    spec_name = str(row.get('General Specifications', '')).strip()
+    found_path = os.path.join("static", "brochures", f"{spec_name}.pdf")
+    spec_name_encoded = urllib.parse.quote(spec_name)
+    
+    if os.path.exists(found_path):
+        col_dl, col_wa, col_email = st.columns(3) 
+        with col_dl:
+            with open(found_path, "rb") as pdf_file:
+                st.download_button(label="📄 Download Brochure", data=pdf_file, file_name=f"{spec_name}.pdf", mime="application/pdf")
+
+        public_url = f"{GITHUB_RAW_BASE}static/brochures/{spec_name_encoded}.pdf" 
+        subject_mail = f"Product Specs: {brand} - {model}"
+        share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
+        
+        with col_wa:
+            st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button wa-button">📲 WhatsApp</a>', unsafe_allow_html=True)
+        with col_email:
+            st.markdown(f'<a href="mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button email-button">📧 Email</a>', unsafe_allow_html=True)
+    else:
+        st.info("Digital brochure is not yet available.")
+
+
     st.markdown("---")
     if st.button("Tutup Detail"):
         st.session_state.show_dialog = False
