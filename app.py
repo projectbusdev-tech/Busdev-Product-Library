@@ -325,6 +325,8 @@ def main():
         return
 
     st.sidebar.markdown(f"### Welcome, {st.session_state.username}!")
+    st.sidebar.caption(f"Role: {st.session_state.role}")
+    
     if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
         st.rerun()
@@ -341,17 +343,63 @@ def main():
         show_user_management_page()
     else:
         df = load_data()
-        
-        # --- UI FILTER SIDEBAR ---
+
+        def get_uniques(col_name):
+            actual = get_actual_col(df, col_name)
+            if actual:
+                temp = df[actual].dropna().astype(str).str.replace(r"[\[\]']", '', regex=True)
+                all_items = temp.str.split(',').explode().str.strip()
+                return sorted([i for i in all_items.unique() if i and i.lower() != 'nan'])
+            return []
+
         st.sidebar.header("🎛️ Search Filters")
         if st.sidebar.button("🔄 Reset Filters"):
             handle_reset()
             st.session_state.form_key += 1
             st.rerun()
 
+        # --- REORDERED FILTERS ---
+        # 1. Brand/Category
         pilihan_produk = st.sidebar.radio("Brand / Category", ["All", "Manual (Fiorentini)", "Autonomous (Gausium)"], key=f"radio_{st.session_state.form_key}")
-        filter_type = st.sidebar.multiselect("Product Type", sorted(df['Product_type'].dropna().unique().tolist()), key=f"type_{st.session_state.form_key}")
         
+        # 2. Product Type
+        filter_type = st.sidebar.multiselect("Product Type", sorted(df['Product_type'].dropna().unique().tolist()) if 'Product_type' in df.columns else [], key=f"type_{st.session_state.form_key}")
+        
+        # 3. Environment
+        filter_env = st.sidebar.multiselect("Environment", get_uniques('Environment'), key=f"env_{st.session_state.form_key}")
+        
+        # 4. Floor Type
+        filter_floor = st.sidebar.multiselect("Floor Type", get_uniques('Floor_Type_List'), key=f"floor_{st.session_state.form_key}")
+        
+        # 5. Target Cleaning Area (m²/5h)
+        filter_area = st.sidebar.number_input("Target Cleaning Area (m²/5h)", min_value=0, step=100, key=f"area_{st.session_state.form_key}")
+        
+        # 6. Max Slope
+        filter_slope = st.sidebar.number_input("Max Slope (°)", min_value=0, step=1, key=f"slope_{st.session_state.form_key}")
+        
+        # 7. Aisle Category
+        filter_aisle_cat = st.sidebar.multiselect("Aisle Category", get_uniques('Aisle Category'), key=f"aisle_{st.session_state.form_key}")
+
+        # 8. Obstacle 
+        st.sidebar.subheader("Obstacle Selection")
+        obs_options = get_uniques('Obstacle_List')
+        selected_obstacles = []
+        if obs_options:
+            with st.sidebar.expander(f"Select Obstacles ({len(obs_options)})"):
+                for obs in obs_options:
+                    if st.checkbox(obs, key=f"chk_obs_{obs}_{st.session_state.form_key}"):
+                        selected_obstacles.append(obs)
+
+        # 9. Waste Type
+        st.sidebar.subheader("Waste Type Selection")
+        waste_options = get_uniques('Waste_Type_List')
+        selected_wastes = []
+        if waste_options:
+            with st.sidebar.expander(f"Select Waste Types ({len(waste_options)})"):
+                for wst in waste_options:
+                    if st.checkbox(wst, key=f"chk_wst_{wst}_{st.session_state.form_key}"):
+                        selected_wastes.append(wst)
+
         # --- APPLY FILTERS ---
         res = df.copy()
         if pilihan_produk == "Manual (Fiorentini)":
@@ -359,11 +407,30 @@ def main():
         elif pilihan_produk == "Autonomous (Gausium)":
             res = res[res['Brand'].str.contains("Gausium", case=False, na=False)]
         if filter_type: res = res[res['Product_type'].isin(filter_type)]
+        if filter_aisle_cat: res = res[res['Aisle Category'].isin(filter_aisle_cat)]
+        if filter_slope > 0:
+            res['temp_slope'] = pd.to_numeric(res['Max_Slope'], errors='coerce').fillna(0)
+            res = res[res['temp_slope'] >= filter_slope]
+        if filter_area > 0:
+            res['Targeted Cleaning_Area'] = pd.to_numeric(res['Targeted Cleaning_Area'], errors='coerce').fillna(0)
+            res = res[res['Targeted Cleaning_Area'] >= filter_area]
+
+        def apply_list_filter(dataframe, target_col, selected_vals):
+            if not selected_vals: return dataframe
+            actual = get_actual_col(dataframe, target_col)
+            if not actual: return dataframe
+            pattern = "|".join([re.escape(str(v)) for v in selected_vals])
+            return dataframe[dataframe[actual].astype(str).str.contains(pattern, flags=re.IGNORECASE, na=False)]
+
+        res = apply_list_filter(res, 'Environment', filter_env)
+        res = apply_list_filter(res, 'Floor_Type_List', filter_floor)
+        res = apply_list_filter(res, 'Obstacle_List', selected_obstacles)
+        res = apply_list_filter(res, 'Waste_Type_List', selected_wastes)
 
         st.divider()
         st.subheader(f"Results: {len(res)} Products Found")
         
-        if not res.empty:
+        if len(res) > 0:
             cols = st.columns(3)
             for idx, (index, row) in enumerate(res.iterrows()):
                 with cols[idx % 3]:
@@ -375,13 +442,22 @@ def main():
         else:
             st.warning("No products match these filters.")
                 
-        # --- DIALOG HANDLER ---
+        # --- REVISI PEMANGGILAN DIALOG ---
+        # 1. Menangani Popup Detail Produk
         if st.session_state.show_dialog and st.session_state.detail_row is not None:
             show_detail(st.session_state.detail_row, df)
+            # KUNCI PERBAIKAN: Segera set ke False setelah fungsi dipanggil.
+            # Ini akan membersihkan antrean sehingga saat filter sidebar diubah (rerun),
+            # kondisi if ini tidak lagi terpenuhi secara otomatis.
             st.session_state.show_dialog = False
         
+        # 2. Menangani Popup Perbandingan (Comparison)
         if st.session_state.show_compare:
             show_comparison(st.session_state.compare_base, df)
+            # Opsional: Jika popup pembanding juga sering muncul sendiri, 
+            # aktifkan baris di bawah ini:
+            # st.session_state.show_compare = False
 
 if __name__ == "__main__":
     main()
+
