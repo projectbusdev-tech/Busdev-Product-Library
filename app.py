@@ -4,6 +4,16 @@ import os
 import re
 import urllib.parse
 from datetime import datetime, timedelta
+from streamlit_gsheets import GSheetsConnection
+
+# Membuat koneksi
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# Membaca data (Gunakan ttl=0 agar selalu update)
+df = conn.read(ttl=0)
+
+# Menambah data (Misal saat signup)
+# conn.update(data=updated_df)
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Product Recommendation Library", layout="wide")
