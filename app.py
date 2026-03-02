@@ -331,6 +331,10 @@ def show_detail(row, full_df):
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
     aisle_w = row.get('Aisle Width (cm)', '-') 
     slope_val = row.get('Max_Slope', '-') 
+    max_area = row.get('Targeted Cleaning_Area', '-')
+    floor_type = clean_list_string(row.get('Floor_Type_List'))
+    obstacles = clean_list_string(row.get('Obstacle_List'))
+    waste_type = clean_list_string(row.get('Waste_Type_List'))
 
     col_title, col_comp = st.columns([3, 1])
     with col_title:
@@ -351,6 +355,10 @@ def show_detail(row, full_df):
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
         st.write(f"**Aisle Width:** :orange[**{aisle_w} cm**]") 
         st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
+        st.write(f"**Max Target Cleaning Area:** {max_area} m²/5h")
+        st.write(f"**Floor Type:** {floor_type}")
+        st.write(f"**Obstacle:** {obstacles}")
+        st.write(f"**Waste Type:** {waste_type}")
         st.write(f"**Operation Mode:** {row.get('Operation_mode', '-')}")
         st.write(f"**Environment:** {row.get('Environment', '-')}")
         st.write(f"**Power Source:** {row.get('Power Source', '-')}")
