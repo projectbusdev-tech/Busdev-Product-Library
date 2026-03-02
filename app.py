@@ -355,7 +355,7 @@ def show_detail(row, full_df):
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
         st.write(f"**Aisle Width:** :orange[**{aisle_w} cm**]") 
         st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
-        st.write(f"**Max Target Cleaning Area:** {max_area} m²/5h")
+        st.write(f"**Max Target Cleaning Area:** :green[**{max_area} m²/5h**]")
         st.write(f"**Floor Type:** {floor_type}")
         st.write(f"**Obstacle:** {obstacles}")
         st.write(f"**Waste Type:** {waste_type}")
