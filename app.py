@@ -4,9 +4,17 @@ import os
 import re
 import urllib.parse
 from datetime import datetime, timedelta
+from streamlit_gsheets import GSheetsConnection
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Product Recommendation Library", layout="wide")
+
+# --- DATABASE CONNECTION (GOOGLE SHEETS) ---
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+except Exception as e:
+    st.error("Konfigurasi Secrets Google Sheets belum lengkap.")
+    st.stop()
 
 # --- GITHUB RAW URL CONFIGURATION ---
 GITHUB_RAW_BASE = "https://raw.githubusercontent.com/aldre-arch/TN-Product-Reccomendation/main/"
@@ -53,29 +61,45 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- CREDENTIALS & USER DATABASE ---
-# Akun admin tetap hardcoded
+# --- CREDENTIALS & USER DATABASE (GSHEETS) ---
+ADMIN_USERNAME = st.secrets["admin_credentials"]["username"]
+ADMIN_PASSWORD = st.secrets["admin_credentials"]["password"]
+
 ADMIN_USERS = {
-    "admin": {"password": "admintn1", "role": "Admin"}
+    ADMIN_USERNAME: {"password": ADMIN_PASSWORD, "role": "Admin"}
 }
 
-USER_DB_FILE = "users_db.csv"
 HISTORY_FILE = "login_history.csv"
 
 def load_registered_users():
-    if os.path.exists(USER_DB_FILE):
-        return pd.read_csv(USER_DB_FILE)
-    return pd.DataFrame(columns=["Username", "Password", "Role", "Verified"])
+    """Membaca data user dari Google Sheets secara real-time."""
+    try:
+        return conn.read(ttl=0)
+    except Exception:
+        return pd.DataFrame(columns=["Username", "Password", "Role", "Verified"])
 
 def save_new_user(email, password):
+    """Menyimpan user baru ke Google Sheets agar permanen."""
     users_df = load_registered_users()
     if email in users_df['Username'].values:
         return False, "Email sudah terdaftar!"
     
-    # Simpan user baru dengan password yang diinput user
-    new_entry = pd.DataFrame([[email, password, "User", True]], columns=["Username", "Password", "Role", "Verified"])
-    new_entry.to_csv(USER_DB_FILE, mode='a', header=not os.path.exists(USER_DB_FILE), index=False)
-    return True, "Akun berhasil dibuat! Silakan login menggunakan email dan password Anda."
+    new_entry = pd.DataFrame([[email, password, "User", True]], 
+                             columns=["Username", "Password", "Role", "Verified"])
+    
+    # Gabungkan data lama dengan data baru
+    updated_df = pd.concat([users_df, new_entry], ignore_index=True)
+    
+    # Update ke Google Sheets
+    conn.update(data=updated_df)
+    return True, "Akun berhasil dibuat secara permanen! Silakan login."
+
+def delete_user_gsheet(email_to_delete):
+    """Menghapus user dari Google Sheets."""
+    users_df = load_registered_users()
+    updated_df = users_df[users_df['Username'] != email_to_delete]
+    conn.update(data=updated_df)
+    return True
 
 # --- DIALOG SIGN UP ---
 @st.dialog("Sign Up")
@@ -98,9 +122,7 @@ def signup_dialog():
             success, msg = save_new_user(email_input, password_input)
             if success:
                 st.success(msg)
-                st.balloons() # Memberikan efek selebrasi karena akun langsung aktif
-                if st.button("Ke Halaman Login"):
-                    st.rerun()
+                st.balloons()
             else:
                 st.warning(msg)
 
@@ -108,7 +130,6 @@ def signup_dialog():
 def log_login(username, role):
     wib_now = datetime.now() + timedelta(hours=7) 
     now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
-    
     new_entry = pd.DataFrame([[username, role, now_str]], columns=["Username", "Role", "Timestamp"])
     if not os.path.isfile(HISTORY_FILE):
         new_entry.to_csv(HISTORY_FILE, index=False)
@@ -142,24 +163,21 @@ def login_screen():
                     st.session_state.username = username
                     st.session_state.role = ADMIN_USERS[username]["role"]
                     log_login(username, st.session_state.role)
-                    st.success("Login Berhasil sebagai Admin!")
                     st.rerun()
                 
-                # Cek Database User Terdaftar
+                # Cek Database Google Sheets
                 else:
                     users_df = load_registered_users()
-                    match = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
+                    match = users_df[(users_df['Username'] == username) & (users_df['Password'] == str(password))]
                     if not match.empty:
                         st.session_state.logged_in = True
                         st.session_state.username = username
                         st.session_state.role = match.iloc[0]['Role']
                         log_login(username, st.session_state.role)
-                        st.success("Login Berhasil!")
                         st.rerun()
                     else:
                         st.error("Invalid Username or Password")
         
-        # Tombol Sign Up di luar form
         st.write("---")
         if st.button("Sign Up"):
             signup_dialog()
@@ -169,10 +187,7 @@ def show_user_management_page():
     users_df = load_registered_users()
     
     if not users_df.empty:
-        # Menampilkan tabel user
-        st.subheader("Registered Users List")
-        
-        # Tambahkan kolom aksi untuk hapus
+        st.subheader("Registered Users (Google Sheets Database)")
         for index, row in users_df.iterrows():
             col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
             with col1:
@@ -183,13 +198,10 @@ def show_user_management_page():
                 status = "✅ Verified" if row['Verified'] else "❌ Unverified"
                 st.write(status)
             with col4:
-                # Tombol hapus user (Admin tidak bisa menghapus dirinya sendiri di sini)
                 if row['Username'] != st.session_state.username:
                     if st.button("Delete", key=f"del_{row['Username']}"):
-                        # Logika Hapus
-                        updated_df = users_df[users_df['Username'] != row['Username']]
-                        updated_df.to_csv(USER_DB_FILE, index=False)
-                        st.success(f"User {row['Username']} berhasil dihapus!")
+                        delete_user_gsheet(row['Username'])
+                        st.success(f"User {row['Username']} berhasil dihapus permanen!")
                         st.rerun()
                 else:
                     st.write("(Current Admin)")
@@ -225,20 +237,12 @@ def click_detail(row):
 @st.cache_data(ttl=3600)
 def load_data():
     try:
-        # Membaca file dengan encoding latin1
         df = pd.read_csv("Dataset_Normalized_Complete.csv", sep=";", encoding='latin1')
     except:
-        # Fallback jika encoding default berbeda
         df = pd.read_csv("Dataset_Normalized_Complete.csv", sep=";")
-    
-    # 1. Bersihkan nama kolom dari spasi (Sudah ada di kode Anda)
     df.columns = df.columns.str.strip() 
-
-    # 2. PENEMPATAN BARU: Bersihkan isi data pada kolom Product_type
-    # Ini memastikan "Scrubber " (dengan spasi) menjadi "Scrubber"
     if 'Product_type' in df.columns:
         df['Product_type'] = df['Product_type'].astype(str).str.strip()
-    
     return df
 
 # --- IMAGE CHECKER FUNCTION ---
@@ -382,11 +386,8 @@ def show_detail(row, full_df):
 
 
     st.markdown("---")
-    
-    # TAMBAHKAN TOMBOL CLOSE MANUAL
     if st.button("Tutup Detail"):
         st.session_state.show_dialog = False
-        st.session_state.detail_row = None
         st.rerun()
 
 # --- MAIN APP ---
@@ -536,3 +537,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

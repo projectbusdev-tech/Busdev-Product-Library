@@ -1,4 +1,12 @@
+# Mengabaikan seluruh folder konfigurasi sensitif
 .streamlit/
+
+# Mengabaikan database lokal (karena beralih ke Google Sheets)
 users_db.csv
 login_history.csv
+
+# Mengabaikan file sistem dan cache Python
 __pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
