@@ -539,9 +539,7 @@ def main():
         # 2. Menangani Popup Perbandingan (Comparison)
         if st.session_state.show_compare:
             show_comparison(st.session_state.compare_base, df)
-            # Opsional: Jika popup pembanding juga sering muncul sendiri, 
-            # aktifkan baris di bawah ini:
-            # st.session_state.show_compare = False
+            st.session_state.show_compare = False # KUNCI PERBAIKAN
 
 if __name__ == "__main__":
     main()
