@@ -157,16 +157,65 @@ def signup_dialog():
 
 # --- DOWNLOAD HISTORY PAGE ---
 def show_download_history_page():
-    st.title("📂 Download History")
-    st.write("Daftar brosur yang pernah diunduh oleh user dan admin.")
+    st.title("📊 Download Analytics & History")
     
+    # 1. Load Data
     history_df = load_gsheet_data("DownloadHistory")
     
-    if not history_df.empty:
-        # Tampilkan yang terbaru di atas
-        st.dataframe(history_df.iloc[::-1], use_container_width=True)
-    else:
+    if history_df.empty:
         st.info("Belum ada riwayat download.")
+        return
+
+    # Konversi Timestamp ke tipe data datetime agar bisa difilter
+    history_df['Timestamp'] = pd.to_datetime(history_df['Timestamp'])
+    # Tambahkan kolom Bulan-Tahun untuk filter
+    history_df['Month_Year'] = history_df['Timestamp'].dt.strftime('%B %Y')
+
+    # --- BAGIAN FILTER ---
+    st.subheader("🔍 Filter Analytics")
+    month_options = ["All Time"] + sorted(history_df['Month_Year'].unique().tolist(), reverse=True)
+    selected_month = st.selectbox("Pilih Bulan:", month_options)
+
+    # Filter DataFrame berdasarkan pilihan
+    if selected_month != "All Time":
+        filtered_df = history_df[history_df['Month_Year'] == selected_month]
+    else:
+        filtered_df = history_df
+
+    # --- BAGIAN DASHBOARD ---
+    st.divider()
+    if not filtered_df.empty:
+        col1, col2, col3 = st.columns(3)
+        
+        # Hitung Top Brand
+        top_brand_series = filtered_df['Brand'].value_counts()
+        top_brand_name = top_brand_series.idxmax() if not top_brand_series.empty else "-"
+        top_brand_count = top_brand_series.max() if not top_brand_series.empty else 0
+
+        # Hitung Top Model
+        top_model_series = filtered_df['Model'].value_counts()
+        top_model_name = top_model_series.idxmax() if not top_model_series.empty else "-"
+        top_model_count = top_model_series.max() if not top_model_series.empty else 0
+
+        with col1:
+            st.metric("Total Downloads", f"{len(filtered_df)}x")
+        with col2:
+            st.metric("Top Brand", top_brand_name, f"{top_brand_count} downloads")
+        with col3:
+            st.metric("Most Wanted Model", top_model_name, f"{top_model_count} downloads")
+            
+        # Grafik Sederhana (Bar Chart) untuk Brand
+        st.write("### Brand Popularity")
+        st.bar_chart(top_brand_series)
+    else:
+        st.warning("Tidak ada data untuk periode ini.")
+
+    # --- BAGIAN TABEL DATA ---
+    st.divider()
+    st.subheader("📄 Detailed Download Logs")
+    # Tampilkan tabel asli (hanya kolom utama agar rapi)
+    display_cols = ["Timestamp", "Username", "Brand", "Model"]
+    st.dataframe(filtered_df[display_cols].iloc[::-1], use_container_width=True)
 
 
 # --- HISTORY LOGIC ---
