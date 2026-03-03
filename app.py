@@ -4,6 +4,7 @@ import os
 import re
 import urllib.parse
 import io
+import plotly.express as px
 from datetime import datetime, timedelta
 from streamlit_gsheets import GSheetsConnection
 
