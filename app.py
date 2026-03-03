@@ -218,15 +218,18 @@ def show_download_history_page():
         chart_col1, chart_col2 = st.columns(2)
         
         # Map warna tetap konsisten
-        color_map = {'Fiorentini': '#305CDE', 'Gausium': '#0078D4'}
+        color_map = { 'Gausium': '#000000','Fiorentini': '#0078D4'}
 
         with chart_col1:
             st.write("#### by Brand")
-            fig_brand = px.bar(brand_counts, x='Brand', y='Counts', 
-                               color='Brand', color_discrete_map=color_map,
-                               text_auto=True)
-            fig_brand.update_layout(showlegend=False, height=400)
-            st.plotly_chart(fig_brand, use_container_width=True)
+            fig_brand = px.bar(
+                brand_counts, 
+                x='Brand', 
+                y='Counts', 
+                color='Brand', 
+                color_discrete_map=color_map, # Menerapkan warna kustom
+                text_auto=True
+            )
 
         with chart_col2:
             st.write("#### by Model (Top 10)")
