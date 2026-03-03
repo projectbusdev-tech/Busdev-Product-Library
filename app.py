@@ -71,6 +71,35 @@ ADMIN_USERS = {
 
 HISTORY_FILE = "login_history.csv"
 
+# --- DATABASE FUNCTIONS ---
+def load_gsheet_data(worksheet_name):
+    """Membaca data dari tab tertentu di Google Sheets."""
+    try:
+        return conn.read(worksheet=worksheet_name, ttl=0)
+    except Exception:
+        return pd.DataFrame()
+
+def log_download_to_gsheet(username, brand, model):
+    """Mencatat aktivitas download ke Google Sheets."""
+    try:
+        # Load data lama
+        history_df = load_gsheet_data("DownloadHistory")
+        
+        # Buat entry baru
+        wib_now = datetime.now() + timedelta(hours=7)
+        new_entry = pd.DataFrame([[
+            wib_now.strftime("%Y-%m-%d %H:%M:%S"),
+            username,
+            brand,
+            model
+        ]], columns=["Timestamp", "Username", "Brand", "Model"])
+        
+        # Gabungkan dan Update
+        updated_df = pd.concat([history_df, new_entry], ignore_index=True)
+        conn.update(worksheet="DownloadHistory", data=updated_df)
+    except Exception as e:
+        st.error(f"Gagal mencatat history: {e}")
+
 def load_registered_users():
     """Membaca data user dari Google Sheets secara real-time."""
     try:
@@ -125,6 +154,20 @@ def signup_dialog():
                 st.balloons()
             else:
                 st.warning(msg)
+
+# --- DOWNLOAD HISTORY PAGE ---
+def show_download_history_page():
+    st.title("📂 Download History")
+    st.write("Daftar brosur yang pernah diunduh oleh user dan admin.")
+    
+    history_df = load_gsheet_data("DownloadHistory")
+    
+    if not history_df.empty:
+        # Tampilkan yang terbaru di atas
+        st.dataframe(history_df.iloc[::-1], use_container_width=True)
+    else:
+        st.info("Belum ada riwayat download.")
+
 
 # --- HISTORY LOGIC ---
 def log_login(username, role):
@@ -379,7 +422,16 @@ def show_detail(row, full_df):
         col_dl, col_wa, col_email = st.columns(3) 
         with col_dl:
             with open(found_path, "rb") as pdf_file:
-                st.download_button(label="📄 Download Brochure", data=pdf_file, file_name=f"{spec_name}.pdf", mime="application/pdf")
+                # TRIGGER LOG: Jika tombol ditekan, jalankan fungsi log
+                if st.download_button(
+                    label="📄 Download Brochure", 
+                    data=pdf_file, 
+                    file_name=f"{spec_name}.pdf", 
+                    mime="application/pdf",
+                    key=f"dl_{spec_name}"
+                ):
+                    log_download_to_gsheet(st.session_state.username, brand, model)
+                    st.success("Download tercatat!")
 
         public_url = f"{GITHUB_RAW_BASE}static/brochures/{spec_name_encoded}.pdf" 
         subject_mail = f"Product Specs: {brand} - {model}"
@@ -416,13 +468,15 @@ def main():
         st.session_state.logged_in = False
         st.rerun()
     
-    pages = ["Product Library"]
+    pages = ["Product Library", "Download History"]
     if st.session_state.role == "Admin":
         pages.extend(["Login History", "User Management"])
     
     selected_page = st.sidebar.selectbox("Navigate to", pages)
 
-    if selected_page == "Login History":
+    if selected_page == "Download History":
+        show_download_history_page()
+    elif selected_page == "Login History":
         show_history_page()
     elif selected_page == "User Management":
         show_user_management_page()
