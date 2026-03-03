@@ -218,7 +218,7 @@ def show_download_history_page():
         chart_col1, chart_col2 = st.columns(2)
         
         # Map warna tetap konsisten
-        color_map = { 'Gausium': '#000000','Fiorentini': '#0078D4'}
+        color_map = { 'GAUSIUM': '#000000','FIORENTINI': '#0078D4'}
 
         with chart_col1:
             st.write("#### by Brand")
