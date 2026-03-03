@@ -184,36 +184,34 @@ def show_download_history_page():
         st.divider()
         col1, col2, col3 = st.columns(3)
         
-        # 1. Hitung Counts untuk Brand
+        # Hitung Counts Brand & Model
         brand_counts = filtered_df['Brand'].value_counts().reset_index()
         brand_counts.columns = ['Brand', 'Counts']
         
-        # Logika Ambil Top Brand (bisa lebih dari satu jika seri)
-        max_brand_val = brand_counts['Counts'].max()
-        top_brands = brand_counts[brand_counts['Counts'] == max_brand_val]['Brand'].tolist()
-        brand_display = " , ".join(top_brands) # Gabungkan dengan simbol ,
-
-        # 2. Hitung Counts untuk Model
         model_counts = filtered_df['Model'].value_counts().reset_index()
         model_counts.columns = ['Model', 'Counts']
 
-        # Logika Ambil Top Model (bisa lebih dari satu jika seri)
+        # Logika Top Brand (Tie)
+        max_brand_val = brand_counts['Counts'].max()
+        top_brands = brand_counts[brand_counts['Counts'] == max_brand_val]['Brand'].tolist()
+        brand_display = " , ".join(top_brands) # Menggunakan koma agar rapi saat turun ke bawah
+
+        # Logika Top Model (Tie)
         max_model_val = model_counts['Counts'].max()
         top_models = model_counts[model_counts['Counts'] == max_model_val]['Model'].tolist()
-        model_display = " , ".join(top_models) # Gabungkan dengan simbol ,
+        model_display = " , ".join(top_models)
 
-        with col1: 
+        with col1:
+            # Tetap gunakan metric asli untuk angka karena simpel
             st.metric("Total Downloads", f"{len(filtered_df)}x")
         
-        with col2: 
-            # Label otomatis berubah jadi jamak jika ada lebih dari 1 brand
-            label_brand = "Top Brand" if len(top_brands) <= 1 else "Top Brands (Tie)"
-            st.metric(label_brand, brand_display, f"{max_brand_val} dls")
+        with col2:
+            label_b = "Top Brand" if len(top_brands) <= 1 else "Top Brands (Tie)"
+            custom_metric(label_b, brand_display, f"{max_brand_val} dls")
         
-        with col3: 
-            # Label otomatis berubah jadi jamak jika ada lebih dari 1 model
-            label_model = "Top Model" if len(top_models) <= 1 else "Top Models (Tie)"
-            st.metric(label_model, model_display, f"{max_model_val} dls")
+        with col3:
+            label_m = "Top Model" if len(top_models) <= 1 else "Top Models (Tie)"
+            custom_metric(label_m, model_display, f"{max_model_val} dls")
         
         # --- VISUALIZATION SECTION ---
         st.write("### 📈 Popularity Analysis")
@@ -342,6 +340,28 @@ def show_user_management_page():
         st.info("Belum ada user yang terdaftar di database.")
 
 # --- HELPER FUNCTIONS ---
+def custom_metric(label, value, sub_value):
+    st.markdown(f"""
+        <div style="
+            background-color: #f0f2f6;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 5px solid #2ECC71;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        ">
+            <p style="font-size: 14px; color: #5f6368; margin: 0;">{label}</p>
+            <p style="font-size: 18px; font-weight: bold; color: #262730; margin: 5px 0; line-height: 1.2; word-wrap: break-word;">
+                {value}
+            </p>
+            <p style="font-size: 14px; color: #2ecc71; margin: 0; font-weight: 500;">
+                ↑ {sub_value}
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
 def get_actual_col(df, target_name):
     norm_target = re.sub(r'[\s_]+', '', target_name.lower())
     for col in df.columns:
