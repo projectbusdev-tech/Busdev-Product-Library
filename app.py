@@ -222,14 +222,11 @@ def show_download_history_page():
 
         with chart_col1:
             st.write("#### by Brand")
-            fig_brand = px.bar(
-                brand_counts, 
-                x='Brand', 
-                y='Counts', 
-                color='Brand', 
-                color_discrete_map=color_map, # Menerapkan warna kustom
-                text_auto=True
-            )
+            fig_brand = px.bar(brand_counts, x='Brand', y='Counts', 
+                               color='Brand', color_discrete_map=color_map,
+                               text_auto=True)
+            fig_brand.update_layout(showlegend=False, height=400)
+            st.plotly_chart(fig_brand, use_container_width=True)
 
         with chart_col2:
             st.write("#### by Model (Top 10)")
