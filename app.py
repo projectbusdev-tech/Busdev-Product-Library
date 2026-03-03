@@ -184,16 +184,36 @@ def show_download_history_page():
         st.divider()
         col1, col2, col3 = st.columns(3)
         
-        # Hitung Counts
+        # 1. Hitung Counts untuk Brand
         brand_counts = filtered_df['Brand'].value_counts().reset_index()
         brand_counts.columns = ['Brand', 'Counts']
         
+        # Logika Ambil Top Brand (bisa lebih dari satu jika seri)
+        max_brand_val = brand_counts['Counts'].max()
+        top_brands = brand_counts[brand_counts['Counts'] == max_brand_val]['Brand'].tolist()
+        brand_display = " , ".join(top_brands) # Gabungkan dengan simbol ,
+
+        # 2. Hitung Counts untuk Model
         model_counts = filtered_df['Model'].value_counts().reset_index()
         model_counts.columns = ['Model', 'Counts']
 
-        with col1: st.metric("Total Downloads", f"{len(filtered_df)}x")
-        with col2: st.metric("Top Brand", brand_counts['Brand'].iloc[0], f"{brand_counts['Counts'].iloc[0]} dls")
-        with col3: st.metric("Top Model", model_counts['Model'].iloc[0], f"{model_counts['Counts'].iloc[0]} dls")
+        # Logika Ambil Top Model (bisa lebih dari satu jika seri)
+        max_model_val = model_counts['Counts'].max()
+        top_models = model_counts[model_counts['Counts'] == max_model_val]['Model'].tolist()
+        model_display = " , ".join(top_models) # Gabungkan dengan simbol ,
+
+        with col1: 
+            st.metric("Total Downloads", f"{len(filtered_df)}x")
+        
+        with col2: 
+            # Label otomatis berubah jadi jamak jika ada lebih dari 1 brand
+            label_brand = "Top Brand" if len(top_brands) <= 1 else "Top Brands (Tie)"
+            st.metric(label_brand, brand_display, f"{max_brand_val} dls")
+        
+        with col3: 
+            # Label otomatis berubah jadi jamak jika ada lebih dari 1 model
+            label_model = "Top Model" if len(top_models) <= 1 else "Top Models (Tie)"
+            st.metric(label_model, model_display, f"{max_model_val} dls")
         
         # --- VISUALIZATION SECTION ---
         st.write("### 📈 Popularity Analysis")
