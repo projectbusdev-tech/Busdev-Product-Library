@@ -162,6 +162,8 @@ def signup_dialog():
 
 def show_download_history_page():
     st.title("📊 Download Analytics & History")
+    
+    # Load Data
     history_df = load_gsheet_data("DownloadHistory")
     
     if history_df.empty:
@@ -170,90 +172,95 @@ def show_download_history_page():
 
     # Data Processing
     history_df['Timestamp'] = pd.to_datetime(history_df['Timestamp'])
-    history_df['Month_Year'] = history_df['Timestamp'].dt.strftime('%B %Y')
-
-    # Filter Section
+    
+    # --- BAGIAN FILTER RANGE TANGGAL ---
     st.subheader("🔍 Filter & Export")
-    month_options = ["All Time"] + sorted(history_df['Month_Year'].unique().tolist(), reverse=True)
-    selected_month = st.selectbox("Pilih Periode Laporan:", month_options)
+    
+    col_f1, col_f2 = st.columns([2, 1])
+    
+    with col_f1:
+        # Menentukan rentang tanggal default (dari data terkecil sampai terbesar)
+        min_date = history_df['Timestamp'].min().date()
+        max_date = history_df['Timestamp'].max().date()
+        
+        selected_range = st.date_input(
+            "Pilih Rentang Tanggal:",
+            value=(min_date, max_date),
+            min_value=min_date,
+            max_value=max_date
+        )
 
-    filtered_df = history_df if selected_month == "All Time" else history_df[history_df['Month_Year'] == selected_month]
+    # Logika Filter Berdasarkan Tanggal
+    if isinstance(selected_range, tuple) and len(selected_range) == 2:
+        start_date, end_date = selected_range
+        # Filter dataframe berdasarkan range (ditambah 1 hari pada end_date agar hari terakhir ikut terhitung)
+        mask = (history_df['Timestamp'].dt.date >= start_date) & (history_df['Timestamp'].dt.date <= end_date)
+        filtered_df = history_df.loc[mask]
+    else:
+        # Jika user baru klik satu tanggal, tampilkan data hari itu saja dulu
+        filtered_df = history_df[history_df['Timestamp'].dt.date == selected_range[0]]
+        st.info("Silakan pilih tanggal akhir untuk melengkapi rentang.")
 
+    # --- DASHBOARD & VISUALIZATION ---
     if not filtered_df.empty:
-        # --- DASHBOARD METRICS ---
         st.divider()
+        # Dashboard Metrics (Card)
         col1, col2, col3 = st.columns(3)
         
-        # Hitung Counts Brand & Model
-        brand_counts = filtered_df['Brand'].value_counts().reset_index()
+        brand_counts = filtered_df['Brand'].str.upper().value_counts().reset_index()
         brand_counts.columns = ['Brand', 'Counts']
         
         model_counts = filtered_df['Model'].value_counts().reset_index()
         model_counts.columns = ['Model', 'Counts']
 
-        # Logika Top Brand (Tie)
-        max_brand_val = brand_counts['Counts'].max()
-        top_brands = brand_counts[brand_counts['Counts'] == max_brand_val]['Brand'].tolist()
-        brand_display = " , ".join(top_brands) # Menggunakan koma agar rapi saat turun ke bawah
-
-        # Logika Top Model (Tie)
-        max_model_val = model_counts['Counts'].max()
-        top_models = model_counts[model_counts['Counts'] == max_model_val]['Model'].tolist()
-        model_display = " , ".join(top_models)
+        # Hitung Top Brand & Model (Tie Handle)
+        max_b = brand_counts['Counts'].max() if not brand_counts.empty else 0
+        top_b = " , ".join(brand_counts[brand_counts['Counts'] == max_b]['Brand'].tolist())
+        
+        max_m = model_counts['Counts'].max() if not model_counts.empty else 0
+        top_m = " , ".join(model_counts[model_counts['Counts'] == max_m]['Model'].tolist())
 
         with col1:
             custom_metric("Total Downloads", f"{len(filtered_df)}x", "")
-        
         with col2:
-            label_b = "Top Brand" if len(top_brands) <= 1 else "Top Brands (Tie)"
-            custom_metric(label_b, brand_display, f"{max_brand_val} dls")
-        
+            custom_metric("Top Brands", top_b if top_b else "-", f"{max_b} dls")
         with col3:
-            label_m = "Top Model" if len(top_models) <= 1 else "Top Models (Tie)"
-            custom_metric(label_m, model_display, f"{max_model_val} dls")
-        
-        # --- VISUALIZATION SECTION ---
-        st.write("### 📈 Popularity Analysis")
-        chart_col1, chart_col2 = st.columns(2)
-        
-        # Map warna tetap konsisten
-        color_map = { 'GAUSIUM': '#000000','FIORENTINI': '#0078D4'}
+            custom_metric("Top Models", top_m if top_m else "-", f"{max_m} dls")
 
-        with chart_col1:
+        # Visualisasi Grafik
+        st.write(f"### 📈 Analysis: {selected_range[0]} s/d {selected_range[1] if len(selected_range)>1 else '...'}")
+        c1, c2 = st.columns(2)
+
+        color_map = {'GAUSIUM': '#000000', 'FIORENTINI': '#0078D4'}
+
+        with c1:
             st.write("#### by Brand")
-            fig_brand = px.bar(brand_counts, x='Brand', y='Counts', 
-                               color='Brand', color_discrete_map=color_map,
-                               text_auto=True)
+            fig_brand = px.bar(brand_counts, x='Brand', y='Counts', color='Brand', 
+                               color_discrete_map=color_map, text_auto=True)
             fig_brand.update_layout(showlegend=False, height=400)
             st.plotly_chart(fig_brand, use_container_width=True)
 
-        with chart_col2:
+        with c2:
             st.write("#### by Model (Top 10)")
-            # Mengambil top 10 agar grafik tetap rapi
-            top_10_models = model_counts.head(10)
-            fig_model = px.bar(top_10_models, x='Counts', y='Model', 
-                               orientation='h', # Horizontal agar nama model terbaca
-                               text_auto=True,
-                               color_discrete_sequence=['#2ECC71']) # Hijau untuk model agar beda
+            fig_model = px.bar(model_counts.head(10), x='Counts', y='Model', orientation='h', 
+                               text_auto=True, color_discrete_sequence=['#2ECC71'])
             fig_model.update_layout(yaxis={'categoryorder':'total ascending'}, height=400)
             st.plotly_chart(fig_model, use_container_width=True)
 
-        # Export Button
+        # Download Button
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            filtered_df.drop(columns=['Month_Year']).to_excel(writer, index=False, sheet_name='DownloadHistory')
+            filtered_df.to_excel(writer, index=False, sheet_name='Report')
         st.download_button(label="📥 Download Report as Excel", data=buffer.getvalue(), 
-                           file_name=f"Download_Report_{selected_month.replace(' ','_')}.xlsx",
+                           file_name=f"Report_{selected_range[0]}_to_{selected_range[1] if len(selected_range)>1 else ''}.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
-        st.warning("Tidak ada data untuk periode ini.")
+        st.warning("Tidak ada data download pada rentang tanggal yang dipilih.")
 
-    # --- BAGIAN TABEL DATA ---
+    # Tabel Data
     st.divider()
     st.subheader("📄 Detailed Download Logs")
-    display_cols = ["Timestamp", "Username", "Brand", "Model"]
-    st.dataframe(filtered_df[display_cols].iloc[::-1], use_container_width=True)
-
+    st.dataframe(filtered_df[["Timestamp", "Username", "Brand", "Model"]].iloc[::-1], use_container_width=True)
 
 # --- HISTORY LOGIC ---
 def log_login(username, role):
