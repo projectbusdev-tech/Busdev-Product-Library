@@ -157,68 +157,62 @@ def signup_dialog():
             else:
                 st.warning(msg)
 
-# --- DOWNLOAD HISTORY PAGE ---
+# --- PAGES ---
+
 def show_download_history_page():
     st.title("📊 Download Analytics & History")
-    
-    # 1. Load Data
     history_df = load_gsheet_data("DownloadHistory")
     
     if history_df.empty:
-        st.info("Belum ada riwayat download untuk dianalisis.")
+        st.info("Belum ada riwayat download di Google Sheets.")
         return
 
-    # Pastikan Timestamp adalah datetime
+    # Data Processing
     history_df['Timestamp'] = pd.to_datetime(history_df['Timestamp'])
     history_df['Month_Year'] = history_df['Timestamp'].dt.strftime('%B %Y')
 
-    # --- BAGIAN FILTER ---
-    st.subheader("🔍 Filter & Export")
+    # Filter Section
+    st.subheader("🔍 Filter & Report")
     month_options = ["All Time"] + sorted(history_df['Month_Year'].unique().tolist(), reverse=True)
     selected_month = st.selectbox("Pilih Periode Laporan:", month_options)
 
-    # Filter DataFrame
-    if selected_month != "All Time":
-        filtered_df = history_df[history_df['Month_Year'] == selected_month]
-    else:
-        filtered_df = history_df
+    filtered_df = history_df if selected_month == "All Time" else history_df[history_df['Month_Year'] == selected_month]
 
-    # --- BAGIAN DOWNLOAD REPORT (EXCEL) ---
-    if not filtered_df.empty:
-        # Menyiapkan file Excel di memori
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            filtered_df.to_excel(writer, index=False, sheet_name='Report')
-            # Anda bisa menambahkan formatting tambahan di sini jika perlu
-        
-        st.download_button(
-            label="📥 Download Report as Excel",
-            data=buffer.getvalue(),
-            file_name=f"Download_Report_{selected_month.replace(' ', '_')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-    # --- BAGIAN DASHBOARD METRICS ---
+    # Dashboard Dashboard Metrics
     st.divider()
     if not filtered_df.empty:
         col1, col2, col3 = st.columns(3)
+        top_brand_counts = filtered_df['Brand'].value_counts().reset_index()
+        top_brand_counts.columns = ['Brand', 'Counts']
         
-        top_brand_series = filtered_df['Brand'].value_counts()
         top_model_series = filtered_df['Model'].value_counts()
 
-        with col1:
-            st.metric("Total Downloads", f"{len(filtered_df)}x")
-        with col2:
-            st.metric("Top Brand", top_brand_series.idxmax() if not top_brand_series.empty else "-", 
-                      f"{top_brand_series.max() if not top_brand_series.empty else 0} dls")
-        with col3:
-            st.metric("Most Wanted Model", top_model_series.idxmax() if not top_model_series.empty else "-", 
-                      f"{top_model_series.max() if not top_model_series.empty else 0} dls")
-            
-        st.write("### Brand Popularity Chart")
-        st.bar_chart(top_brand_series)
+        with col1: st.metric("Total Downloads", f"{len(filtered_df)}x")
+        with col2: st.metric("Top Brand", top_brand_counts['Brand'].iloc[0] if not top_brand_counts.empty else "-", f"{top_brand_counts['Counts'].iloc[0] if not top_brand_counts.empty else 0} dls")
+        with col3: st.metric("Top Model", top_model_series.idxmax() if not top_model_series.empty else "-", f"{top_model_series.max() if not top_model_series.empty else 0} dls")
+        
+        # --- COLORED CHART USING PLOTLY ---
+        st.write("### Brand Popularity Analysis")
+        # Map warna: Fiorentini -> Red, Gausium -> Blue, Others -> Grey
+        color_map = {'Fiorentini': '#FF4B4B', 'Gausium': '#0078D4'}
+        
+        fig = px.bar(top_brand_counts, x='Brand', y='Counts', 
+                     color='Brand', 
+                     color_discrete_map=color_map,
+                     text_auto=True,
+                     title=f"Total Download per Brand ({selected_month})")
+        fig.update_layout(showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Export Button
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            filtered_df.drop(columns=['Month_Year']).to_excel(writer, index=False, sheet_name='DownloadHistory')
+        st.download_button(label="📥 Download Report as Excel", data=buffer.getvalue(), 
+                           file_name=f"Download_Report_{selected_month.replace(' ','_')}.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
-        st.warning("No Data in this periode.")
+        st.warning("Tidak ada data untuk periode ini.")
 
     # --- BAGIAN TABEL DATA ---
     st.divider()
