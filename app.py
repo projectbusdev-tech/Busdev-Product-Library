@@ -173,37 +173,53 @@ def show_download_history_page():
     history_df['Month_Year'] = history_df['Timestamp'].dt.strftime('%B %Y')
 
     # Filter Section
-    st.subheader("🔍 Filter & Report")
+    st.subheader("🔍 Filter & Export")
     month_options = ["All Time"] + sorted(history_df['Month_Year'].unique().tolist(), reverse=True)
     selected_month = st.selectbox("Pilih Periode Laporan:", month_options)
 
     filtered_df = history_df if selected_month == "All Time" else history_df[history_df['Month_Year'] == selected_month]
 
-    # Dashboard Dashboard Metrics
-    st.divider()
     if not filtered_df.empty:
+        # --- DASHBOARD METRICS ---
+        st.divider()
         col1, col2, col3 = st.columns(3)
-        top_brand_counts = filtered_df['Brand'].value_counts().reset_index()
-        top_brand_counts.columns = ['Brand', 'Counts']
         
-        top_model_series = filtered_df['Model'].value_counts()
+        # Hitung Counts
+        brand_counts = filtered_df['Brand'].value_counts().reset_index()
+        brand_counts.columns = ['Brand', 'Counts']
+        
+        model_counts = filtered_df['Model'].value_counts().reset_index()
+        model_counts.columns = ['Model', 'Counts']
 
         with col1: st.metric("Total Downloads", f"{len(filtered_df)}x")
-        with col2: st.metric("Top Brand", top_brand_counts['Brand'].iloc[0] if not top_brand_counts.empty else "-", f"{top_brand_counts['Counts'].iloc[0] if not top_brand_counts.empty else 0} dls")
-        with col3: st.metric("Top Model", top_model_series.idxmax() if not top_model_series.empty else "-", f"{top_model_series.max() if not top_model_series.empty else 0} dls")
+        with col2: st.metric("Top Brand", brand_counts['Brand'].iloc[0], f"{brand_counts['Counts'].iloc[0]} dls")
+        with col3: st.metric("Top Model", model_counts['Model'].iloc[0], f"{model_counts['Counts'].iloc[0]} dls")
         
-        # --- COLORED CHART USING PLOTLY ---
-        st.write("### Brand Popularity Analysis")
-        # Map warna: Fiorentini -> Red, Gausium -> Blue, Others -> Grey
+        # --- VISUALIZATION SECTION ---
+        st.write("### 📈 Popularity Analysis")
+        chart_col1, chart_col2 = st.columns(2)
+        
+        # Map warna tetap konsisten
         color_map = {'Fiorentini': '#FF4B4B', 'Gausium': '#0078D4'}
-        
-        fig = px.bar(top_brand_counts, x='Brand', y='Counts', 
-                     color='Brand', 
-                     color_discrete_map=color_map,
-                     text_auto=True,
-                     title=f"Total Download per Brand ({selected_month})")
-        fig.update_layout(showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+
+        with chart_col1:
+            st.write("#### by Brand")
+            fig_brand = px.bar(brand_counts, x='Brand', y='Counts', 
+                               color='Brand', color_discrete_map=color_map,
+                               text_auto=True)
+            fig_brand.update_layout(showlegend=False, height=400)
+            st.plotly_chart(fig_brand, use_container_width=True)
+
+        with chart_col2:
+            st.write("#### by Model (Top 10)")
+            # Mengambil top 10 agar grafik tetap rapi
+            top_10_models = model_counts.head(10)
+            fig_model = px.bar(top_10_models, x='Counts', y='Model', 
+                               orientation='h', # Horizontal agar nama model terbaca
+                               text_auto=True,
+                               color_discrete_sequence=['#2ECC71']) # Hijau untuk model agar beda
+            fig_model.update_layout(yaxis={'categoryorder':'total ascending'}, height=400)
+            st.plotly_chart(fig_model, use_container_width=True)
 
         # Export Button
         buffer = io.BytesIO()
