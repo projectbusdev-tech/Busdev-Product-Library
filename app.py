@@ -202,8 +202,7 @@ def show_download_history_page():
         model_display = " , ".join(top_models)
 
         with col1:
-            # Tetap gunakan metric asli untuk angka karena simpel
-            st.metric("Total Downloads", f"{len(filtered_df)}x")
+            custom_metric("Total Downloads", f"{len(filtered_df)}x", "")
         
         with col2:
             label_b = "Top Brand" if len(top_brands) <= 1 else "Top Brands (Tie)"
