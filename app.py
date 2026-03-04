@@ -644,9 +644,41 @@ def filter_analytics_page():
         # --- Visualisasi 1: Top Floor Type yang Dicari ---
         st.subheader("Most Searched Floor Types")
         floor_data = data[data['Category'] == 'Floor Type']
+        
         if not floor_data.empty:
+            # Menghitung jumlah kemunculan tiap tipe lantai
             floor_counts = floor_data['Value'].value_counts().reset_index()
-            st.bar_chart(data=floor_counts, x='Value', y='count', color="#25D366")
+            floor_counts.columns = ['Floor Type', 'Count'] # Memberi nama kolom yang jelas
+
+            # Menggunakan Plotly untuk kontrol tampilan yang lebih detail
+            fig_floor = px.bar(
+                floor_counts, 
+                x='Floor Type', 
+                y='Count',
+                text='Count', # Menampilkan angka di atas batang
+                color='Count',
+                color_continuous_scale='Greens'
+            )
+
+            # Mengatur tampilan teks dan font agar lebih besar dan jelas
+            fig_floor.update_traces(
+                textposition='outside', 
+                textfont=dict(size=14, color='black') # Ukuran angka di atas batang
+            )
+
+            fig_floor.update_layout(
+                xaxis_title="Tipe Lantai",
+                yaxis_title="Jumlah Pencarian",
+                font=dict(size=14), # Ukuran font label sumbu X dan Y
+                uniformtext_minsize=12,
+                uniformtext_mode='hide',
+                height=500,
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
+
+            st.plotly_chart(fig_floor, use_container_width=True)
+        else:
+            st.info("Belum ada data untuk Floor Type")
 
         # --- Visualisasi 2: Obstacle Frequency & Aisle Category ---
         col1, col2 = st.columns(2)
