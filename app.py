@@ -531,48 +531,46 @@ def show_detail(row, full_df):
     spec_name_encoded = urllib.parse.quote(spec_name)
     
     if os.path.exists(found_path):
-        col_dl, col_wa, col_email = st.columns(3) 
-        with col_dl:
-            with open(found_path, "rb") as pdf_file:
-                # TRIGGER LOG: Jika tombol ditekan, jalankan fungsi log
-                if st.download_button(
-                    label="📄 Download Brochure", 
-                    data=pdf_file, 
-                    file_name=f"{spec_name}.pdf", 
-                    mime="application/pdf",
-                    key=f"dl_{spec_name}"
-                ):
-                    # PERBAIKAN: Tambahkan argumen ke-4 yaitu "Download"
-                    log_activity_to_gsheet(st.session_state.username, brand, model, "Download")
-                    st.success("Download tercatat!")
+            # Pastikan ketiga variabel ini didefinisikan bersamaan
+            col_dl, col_wa, col_em = st.columns(3)
+            
+            with col_dl:
+                with open(found_path, "rb") as pdf_file:
+                    if st.download_button(
+                        label="📄 Download Brochure",
+                        data=pdf_file,
+                        file_name=f"{spec_name}.pdf",
+                        mime="application/pdf",
+                        key=f"dl_{spec_name}"
+                    ):
+                        log_activity_to_gsheet(st.session_state.username, brand, model, "Download")
+                        st.success("Download tercatat!")
 
-        public_url = f"{GITHUB_RAW_BASE}static/brochures/{spec_name_encoded}.pdf" 
-        subject_mail = f"Product Specs: {brand} - {model}"
-        share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
-        
-        with col_wa:
-            # Gunakan on_click agar data PASTI tercatat lebih dulu
-            if st.button("📲 WhatsApp", key=f"wa_real_{row.name}", use_container_width=True,
-                         on_click=handle_share_logging, 
-                         args=(st.session_state.username, brand, model, "WhatsApp")):
-                
-                # Setelah logging sukses, baru buka link
+            with col_wa:
                 wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
-                js = f'window.open("{wa_url}", "_blank").focus();'
-                st.components.v1.html(f'<script>{js}</script>', height=0)
+                # Gunakan on_click callback untuk mencegah double logging
+                if st.button("📲 WhatsApp", key=f"wa_btn_{row.name}", use_container_width=True,
+                             on_click=handle_share_logging, 
+                             args=(st.session_state.username, brand, model, "WhatsApp")):
+                    
+                    # Jalankan JS untuk buka tab baru (mencegah refused to connect)
+                    js_wa = f'window.open("{wa_url}", "_blank").focus();'
+                    st.components.v1.html(f'<script>{js_wa}</script>', height=0)
 
-        with col_em:
-            if st.button("📧 Email", key=f"em_real_{row.name}", use_container_width=True,
-                         on_click=handle_share_logging, 
-                         args=(st.session_state.username, brand, model, "Email")):
-                
+            with col_em:
+                subject_mail = f"Product Info: {brand} - {model}"
                 email_url = f"mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}"
-                js = f'window.location.href = "{email_url}";'
-                st.components.v1.html(f'<script>{js}</script>', height=0)
-    else:
-        st.info("Digital brochure is not yet available.")
-
-
+                
+                if st.button("📧 Email", key=f"em_btn_{row.name}", use_container_width=True,
+                             on_click=handle_share_logging, 
+                             args=(st.session_state.username, brand, model, "Email")):
+                    
+                    # Jalankan JS untuk buka aplikasi email
+                    js_em = f'window.location.href = "{email_url}";'
+                    st.components.v1.html(f'<script>{js_em}</script>', height=0)
+        else:
+            st.info("Digital brochure is not yet available.")
+ 
     st.markdown("---")
     if st.button("Tutup Detail"):
         st.session_state.show_dialog = False
