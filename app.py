@@ -546,17 +546,12 @@ def show_detail(row, full_df):
         share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
         
         with col_wa:
-            # Gunakan key unik agar tidak error jika ada banyak produk
-            if st.button("📲 WhatsApp", key=f"wa_{row.name}"):
-                # 1. Catat aktivitas ke GSheet (Python side)
+            wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
+            # Gunakan st.link_button untuk menghindari blokir browser
+            if st.link_button("📲 WhatsApp", wa_url, use_container_width=True):
+                # Catatan: link_button di Streamlit akan membuka link dulu, 
+                # lalu menjalankan kode di bawahnya (tergantung versi Streamlit)
                 log_activity_to_gsheet(st.session_state.username, brand, model, "WhatsApp")
-                
-                # 2. Buka link di Tab Baru menggunakan JavaScript (Client side)
-                wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
-                js = f'window.open("{wa_url}", "_blank").focus();'
-                st.components.v1.html(f'<script>{js}</script>', height=0)
-                
-                st.toast("Membuka WhatsApp...")
         with col_email:
             if st.button("📧 Email", key=f"em_{row.name}"):
                 # 1. Catat aktivitas ke GSheet
