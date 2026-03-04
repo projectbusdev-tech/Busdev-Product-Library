@@ -554,7 +554,7 @@ def show_detail(row, full_df):
                     log_activity_to_gsheet(st.session_state.username, brand, model, "Download")
                     st.success("Download tercatat!")
 
-       with col_wa:
+        with col_wa:
             wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
             # Gunakan st.link_button untuk menghindari blokir browser
             if st.link_button("📲 WhatsApp", wa_url, use_container_width=True):
