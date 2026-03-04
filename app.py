@@ -246,17 +246,49 @@ def show_download_history_page():
 
         with c1:
             st.write("#### by Brand")
-            fig_brand = px.bar(brand_counts, x='Brand', y='Counts', color='Brand', 
-                               color_discrete_map=color_map, text_auto=True)
-            fig_brand.update_layout(showlegend=False, height=400)
-            st.plotly_chart(fig_brand, use_container_width=True)
+            fig_b = px.bar(brand_counts, x='Brand', y='Counts', color='Brand', 
+                           color_discrete_map=color_map, text_auto=True)
+            
+            # --- PERBAIKAN SUMBU & LABEL ---
+            fig_b.update_layout(
+                showlegend=False, 
+                height=450,
+                xaxis_title="Nama Brand",
+                yaxis_title="Total Download (Unit)",
+                font=dict(size=14), # Memperbesar font umum
+            )
+            fig_b.update_traces(
+                textfont_size=16, # Memperbesar angka di atas bar
+                textposition='outside',
+                cliponaxis=False
+            )
+            fig_b.update_xaxes(tickfont=dict(size=14, color='black', family='Arial Black'))
+            fig_b.update_yaxes(tickfont=dict(size=14))
+            
+            st.plotly_chart(fig_b, use_container_width=True)
 
         with c2:
             st.write("#### by Model (Top 10)")
-            fig_model = px.bar(model_counts.head(10), x='Counts', y='Model', orientation='h', 
-                               text_auto=True, color_discrete_sequence=['#2ECC71'])
-            fig_model.update_layout(yaxis={'categoryorder':'total ascending'}, height=400)
-            st.plotly_chart(fig_model, use_container_width=True)
+            fig_m = px.bar(model_counts.head(10), x='Counts', y='Model', 
+                               orientation='h', text_auto=True, 
+                               color_discrete_sequence=['#2ECC71'])
+            
+            # --- PERBAIKAN SUMBU & LABEL ---
+            fig_m.update_layout(
+                height=450,
+                xaxis_title="Jumlah Download",
+                yaxis_title="", # Kosongkan karena nama model sudah jelas
+                font=dict(size=13),
+                yaxis={'categoryorder':'total ascending'}
+            )
+            fig_m.update_traces(
+                textfont_size=14, 
+                textposition='outside'
+            )
+            # Memperbesar font nama model agar mudah dibaca di sisi kiri
+            fig_m.update_yaxes(tickfont=dict(size=14, color='black'))
+            
+            st.plotly_chart(fig_m, use_container_width=True)
 
         # Download Button
         buffer = io.BytesIO()
