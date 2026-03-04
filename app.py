@@ -546,16 +546,10 @@ def show_detail(row, full_df):
         
         # --- LOGIKA WHATSAPP ---
         with col_wa:
-            # Kita gunakan link murni agar TIDAK BLANK dan TIDAK TERBLOKIR
-            st.markdown(f'''
-                <a href="https://wa.me/?text={urllib.parse.quote(share_msg)}" 
-                   target="_blank" 
-                   class="custom-button wa-button" 
-                   style="text-decoration: none; color: white; background-color: #25D366; padding: 10px; border-radius: 5px; display: block; text-align: center;"
-                   onclick="window.parent.postMessage('log_wa', '*')">
-                   📲 WhatsApp
-                </a>
-            ''', unsafe_allow_html=True)
+            wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
+            if st.link_button("📲 WhatsApp", wa_url, use_container_width=True):
+            # Catatan: Ini akan mencatat log SETELAH user kembali ke aplikasi
+            log_activity_to_gsheet(st.session_state.username, brand, model, "WhatsApp")
             
         # --- LOGIKA EMAIL ---
         with col_email:
