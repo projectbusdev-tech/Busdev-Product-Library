@@ -82,26 +82,25 @@ def load_gsheet_data(worksheet_name):
     except Exception:
         return pd.DataFrame()
 
-def log_download_to_gsheet(username, brand, model):
-    """Mencatat aktivitas download ke Google Sheets."""
+def log_activity_to_gsheet(username, brand, model, record_type):
     try:
-        # Load data lama
+        # Nama worksheet tetap "DownloadHistory" agar tidak perlu ganti konfigurasi, 
+        # tapi isinya kita perluas.
         history_df = load_gsheet_data("DownloadHistory")
-        
-        # Buat entry baru
         wib_now = datetime.now() + timedelta(hours=7)
-        new_entry = pd.DataFrame([[
-            wib_now.strftime("%Y-%m-%d %H:%M:%S"),
-            username,
-            brand,
-            model
-        ]], columns=["Timestamp", "Username", "Brand", "Model"])
         
-        # Gabungkan dan Update
+        new_entry = pd.DataFrame([[
+            wib_now.strftime("%Y-%m-%d %H:%M:%S"), 
+            username, 
+            brand, 
+            model, 
+            record_type
+        ]], columns=["Timestamp", "Username", "Brand", "Model", "RecordType"])
+        
         updated_df = pd.concat([history_df, new_entry], ignore_index=True)
         conn.update(worksheet="DownloadHistory", data=updated_df)
     except Exception as e:
-        st.error(f"Gagal mencatat history: {e}")
+        st.error(f"Gagal mencatat log {record_type}: {e}")
 
 def load_registered_users():
     """Membaca data user dari Google Sheets secara real-time."""
@@ -160,154 +159,100 @@ def signup_dialog():
 
 # --- PAGES ---
 
-def show_download_history_page():
-    st.title("📊 Download Analytics & History")
+def show_product_analytics_page():
+    st.title("📊 Product Analytics")
     
-    # Load Data
     history_df = load_gsheet_data("DownloadHistory")
-    
     if history_df.empty:
-        st.info("Belum ada riwayat download di Google Sheets.")
+        st.info("Belum ada data aktivitas.")
         return
 
-    # Data Processing
     history_df['Timestamp'] = pd.to_datetime(history_df['Timestamp'])
-
-    # --- LOGIKA FILTER BERDASARKAN ROLE ---
-    # Jika bukan Admin, maka hanya tampilkan data milik user itu sendiri
+    
+    # Filter Role
     if st.session_state.role != "Admin":
         history_df = history_df[history_df['Username'] == st.session_state.username]
-        
-        if history_df.empty:
-            st.info("Anda belum memiliki riwayat download.")
-            return
-    # Jika Admin, maka history_df tetap berisi semua data (tanpa filter username)
 
+    st.subheader("🔍 Filters")
+    c_f1, c_f2 = st.columns([2, 1])
     
-    # --- BAGIAN FILTER RANGE TANGGAL ---
-    st.subheader("🔍 Filter & Export")
-    
-    col_f1, col_f2 = st.columns([2, 1])
-    
-    with col_f1:
-        # Menentukan rentang tanggal default (dari data terkecil sampai terbesar)
-        min_date = history_df['Timestamp'].min().date()
-        max_date = history_df['Timestamp'].max().date()
+    with c_f1:
+        # 1. Filter Tanggal
+        min_d, max_d = history_df['Timestamp'].min().date(), history_df['Timestamp'].max().date()
+        date_range = st.date_input("Rentang Tanggal:", value=(min_d, max_d))
         
-        selected_range = st.date_input(
-            "Pilih Rentang Tanggal:",
-            value=(min_date, max_date),
-            min_value=min_date,
-            max_value=max_date
-        )
+    with c_f2:
+        # 2. Filter Jenis Aktivitas
+        activity_options = ["All Activities", "Download", "WhatsApp", "Email"]
+        selected_activity = st.selectbox("Jenis Aktivitas (untuk Grafik):", activity_options)
 
-    # Logika Filter Berdasarkan Tanggal
-    if isinstance(selected_range, tuple) and len(selected_range) == 2:
-        start_date, end_date = selected_range
-        # Filter dataframe berdasarkan range (ditambah 1 hari pada end_date agar hari terakhir ikut terhitung)
-        mask = (history_df['Timestamp'].dt.date >= start_date) & (history_df['Timestamp'].dt.date <= end_date)
-        filtered_df = history_df.loc[mask]
+    # Logika Filter Tanggal
+    if isinstance(date_range, tuple) and len(date_range) == 2:
+        mask = (history_df['Timestamp'].dt.date >= date_range[0]) & (history_df['Timestamp'].dt.date <= date_range[1])
+        df_filtered = history_df.loc[mask]
     else:
-        # Jika user baru klik satu tanggal, tampilkan data hari itu saja dulu
-        filtered_df = history_df[history_df['Timestamp'].dt.date == selected_range[0]]
-        st.info("Silakan pilih tanggal akhir untuk melengkapi rentang.")
+        df_filtered = history_df
 
-    # --- DASHBOARD & VISUALIZATION ---
-    if not filtered_df.empty:
+    if not df_filtered.empty:
+        # --- METRICS CARD (Kombinasi Count untuk Top Brand/Model) ---
         st.divider()
-        # Dashboard Metrics (Card)
-        col1, col2, col3 = st.columns(3)
+        m1, m2, m3, m4, m5 = st.columns(5)
         
-        brand_counts = filtered_df['Brand'].str.upper().value_counts().reset_index()
-        brand_counts.columns = ['Brand', 'Counts']
+        # Hitung untuk Card khusus
+        total_dl = len(df_filtered[df_filtered['RecordType'] == 'Download'])
+        total_wa = len(df_filtered[df_filtered['RecordType'] == 'WhatsApp'])
+        total_em = len(df_filtered[df_filtered['RecordType'] == 'Email'])
         
-        model_counts = filtered_df['Model'].value_counts().reset_index()
-        model_counts.columns = ['Model', 'Counts']
-
-        # Hitung Top Brand & Model (Tie Handle)
-        max_b = brand_counts['Counts'].max() if not brand_counts.empty else 0
-        top_b = " , ".join(brand_counts[brand_counts['Counts'] == max_b]['Brand'].tolist())
+        # Hitung Top (berdasarkan kombinasi semua aktivitas di range tgl tersebut)
+        top_brand_df = df_filtered['Brand'].str.upper().value_counts().reset_index()
+        top_model_df = df_filtered['Model'].value_counts().reset_index()
         
-        max_m = model_counts['Counts'].max() if not model_counts.empty else 0
-        top_m = " , ".join(model_counts[model_counts['Counts'] == max_m]['Model'].tolist())
+        max_b = top_brand_df['count'].max() if not top_brand_df.empty else 0
+        b_name = " , ".join(top_brand_df[top_brand_df['count'] == max_b]['Brand'].tolist())
+        
+        max_m = top_model_df['count'].max() if not top_model_df.empty else 0
+        m_name = " , ".join(top_model_df[top_model_df['count'] == max_m]['Model'].tolist())
 
-        with col1:
-            custom_metric("Total Downloads", f"{len(filtered_df)}x", "")
-        with col2:
-            custom_metric("Top Brands", top_b if top_b else "-", f"{max_b} dls")
-        with col3:
-            custom_metric("Top Models", top_m if top_m else "-", f"{max_m} dls")
+        with m1: custom_metric("Total Downloads", f"{total_dl}x", "")
+        with m2: custom_metric("WhatsApp Share", f"{total_wa}x", "")
+        with m3: custom_metric("Email Share", f"{total_em}x", "")
+        with m4: custom_metric("Top Brand (All)", b_name, f"{max_b} acts")
+        with m5: custom_metric("Top Model (All)", m_name, f"{max_m} acts")
 
-        # Visualisasi Grafik
-        st.write(f"### 📈 Analysis: {selected_range[0]} s/d {selected_range[1] if len(selected_range)>1 else '...'}")
-        c1, c2 = st.columns(2)
+        # --- VISUALISASI (Berdasarkan Filter Aktivitas) ---
+        st.write(f"### 📈 Charts: {selected_activity}")
+        
+        # Filter data khusus untuk grafik
+        if selected_activity != "All Activities":
+            df_chart = df_filtered[df_filtered['RecordType'] == selected_activity]
+        else:
+            df_chart = df_filtered
 
-        color_map = {'GAUSIUM': '#000000', 'FIORENTINI': '#0078D4'}
-
-        with c1:
-            st.write("#### by Brand")
-            # Kita gabungkan Brand dan Counts untuk label di dalam bar
-            fig_b = px.bar(brand_counts, x='Brand', y='Counts', color='Brand', 
-                           color_discrete_map=color_map,
-                           text='Brand') # Menjadikan nama Brand sebagai teks
+        if not df_chart.empty:
+            chart_brand = df_chart['Brand'].str.upper().value_counts().reset_index()
+            chart_model = df_chart['Model'].value_counts().reset_index()
             
-            fig_b.update_layout(
-                showlegend=False, 
-                height=500,
-                xaxis_title="", # Hilangkan karena label sudah di dalam
-                yaxis_title="Total Download (Unit)",
-                yaxis=dict(title_font=dict(size=18, color='black')),
-                margin=dict(t=20, b=20)
-            )
-            
-            fig_b.update_traces(
-                textposition='inside', # Paksa masuk ke dalam bar
-                insidetextanchor='middle', # Posisi di tengah bar
-                textfont=dict(size=20, color='white', family='Arial Black'), # Font besar & putih agar kontras
-            )
-            # Menambahkan angka download di atas bar (sebagai anotasi)
-            fig_b.update_traces(texttemplate='%{text}<br>%{y} dls') 
-            
-            st.plotly_chart(fig_b, use_container_width=True)
+            c1, c2 = st.columns(2)
+            color_map = {'GAUSIUM': '#000000', 'FIORENTINI': '#0078D4'}
 
-        with c2:
-            st.write("#### by Model (Top 10)")
-            fig_m = px.bar(model_counts.head(10), x='Counts', y='Model', 
-                               orientation='h', 
-                               text='Model', # Menjadikan nama Model sebagai teks
-                               color_discrete_sequence=['#2ECC71'])
-            
-            fig_m.update_layout(
-                height=500,
-                xaxis_title="Jumlah Download",
-                yaxis_title="",
-                xaxis=dict(title_font=dict(size=18, color='black')),
-                yaxis=dict(showticklabels=False), # Hilangkan label sumbu Y di kiri agar rapi
-                margin=dict(l=20)
-            )
-            
-            fig_m.update_traces(
-                textposition='inside',
-                insidetextanchor='start', # Rata kiri di dalam batang
-                textfont=dict(size=16, color='white', family='Arial Black'),
-                texttemplate='  %{text} (%{x})' # Format: Nama Model (Jumlah)
-            )
-            st.plotly_chart(fig_m, use_container_width=True)
+            with c1:
+                fig_b = px.bar(chart_brand, x='Brand', y='count', color='Brand', color_discrete_map=color_map, text='Brand')
+                fig_b.update_layout(height=450, showlegend=False, yaxis_title="Total Actions")
+                fig_b.update_traces(textposition='inside', texttemplate='%{text}<br>%{y}', textfont=dict(size=16, color='white', family='Arial Black'))
+                st.plotly_chart(fig_b, use_container_width=True)
 
-        # Download Button
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            filtered_df.to_excel(writer, index=False, sheet_name='Report')
-        st.download_button(label="📥 Download Report as Excel", data=buffer.getvalue(), 
-                           file_name=f"Report_{selected_range[0]}_to_{selected_range[1] if len(selected_range)>1 else ''}.xlsx",
-                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    else:
-        st.warning("Tidak ada data download pada rentang tanggal yang dipilih.")
+            with c2:
+                fig_m = px.bar(chart_model.head(10), x='count', y='Model', orientation='h', text='Model', color_discrete_sequence=['#2ECC71'])
+                fig_m.update_layout(height=450, yaxis=dict(showticklabels=False))
+                fig_m.update_traces(textposition='inside', texttemplate=' %{text} (%{x})', textfont=dict(size=14, color='white', family='Arial Black'))
+                st.plotly_chart(fig_m, use_container_width=True)
+        else:
+            st.warning(f"Tidak ada data untuk kategori {selected_activity}")
 
-    # Tabel Data
+    # Tabel Detail
     st.divider()
-    st.subheader("📄 Detailed Download Logs")
-    st.dataframe(filtered_df[["Timestamp", "Username", "Brand", "Model"]].iloc[::-1], use_container_width=True)
+    st.subheader("📄 Activity Logs")
+    st.dataframe(df_filtered[["Timestamp", "Username", "Brand", "Model", "RecordType"]].iloc[::-1], use_container_width=True)
 
 # --- HISTORY LOGIC ---
 def log_login(username, role):
@@ -592,7 +537,7 @@ def show_detail(row, full_df):
                     mime="application/pdf",
                     key=f"dl_{spec_name}"
                 ):
-                    log_download_to_gsheet(st.session_state.username, brand, model)
+                    log_activity_to_gsheet(st.session_state.username, brand, model)
                     st.success("Download tercatat!")
 
         public_url = f"{GITHUB_RAW_BASE}static/brochures/{spec_name_encoded}.pdf" 
@@ -600,9 +545,24 @@ def show_detail(row, full_df):
         share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
         
         with col_wa:
-            st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button wa-button">📲 WhatsApp</a>', unsafe_allow_html=True)
+            # Menggunakan st.button agar bisa menjalankan fungsi Python
+            if st.button("📲 WhatsApp", key=f"wa_{row.name}"):
+                # 1. Catat aktivitas ke GSheet
+                log_activity_to_gsheet(st.session_state.username, brand, model, "WhatsApp")
+                
+                # 2. Buka link WhatsApp secara otomatis
+                wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
+                st.write(f'<meta http-equiv="refresh" content="0;url={wa_url}">', unsafe_allow_html=True)
+                st.toast("WhatsApp share recorded!")
         with col_email:
-            st.markdown(f'<a href="mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button email-button">📧 Email</a>', unsafe_allow_html=True)
+            if st.button("📧 Email", key=f"em_{row.name}"):
+                # 1. Catat aktivitas ke GSheet
+                log_activity_to_gsheet(st.session_state.username, brand, model, "Email")
+                
+                # 2. Buka link Email secara otomatis
+                email_url = f"mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}"
+                st.write(f'<meta http-equiv="refresh" content="0;url={email_url}">', unsafe_allow_html=True)
+                st.toast("Email share recorded!")
     else:
         st.info("Digital brochure is not yet available.")
 
