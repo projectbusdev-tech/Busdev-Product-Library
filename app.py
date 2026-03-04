@@ -157,11 +157,6 @@ def signup_dialog():
             else:
                 st.warning(msg)
 
-def handle_share_logging(username, brand, model, record_type):
-    # Fungsi ini khusus dipanggil saat tombol diklik
-    log_activity_to_gsheet(username, brand, model, record_type)
-    st.toast(f"Aktivitas {record_type} berhasil dicatat!")
-
 # --- PAGES ---
 
 def show_product_analytics_page():
@@ -479,6 +474,13 @@ def show_comparison(base_row, full_df):
         st.session_state.show_compare = False
         st.rerun()
 
+
+def handle_share_logging(username, brand, model, record_type):
+    # Fungsi ini khusus dipanggil saat tombol diklik
+    log_activity_to_gsheet(username, brand, model, record_type)
+    st.toast(f"Aktivitas {record_type} berhasil dicatat!")
+
+
 # --- PRODUCT DETAIL POPUP ---
 @st.dialog("Product Details", width="large")
 def show_detail(row, full_df):
@@ -490,6 +492,13 @@ def show_detail(row, full_df):
     floor_type = clean_list_string(row.get('Floor_Type_List'))
     obstacles = clean_list_string(row.get('Obstacle_List'))
     waste_type = clean_list_string(row.get('Waste_Type_List'))
+    
+    # --- 1. DEFINISIKAN PESAN SHARE DI SINI (MENCEGAH NameError) ---
+    spec_name = str(row.get('General Specifications', '')).strip()
+    # Gantilah URL dasar ini sesuai dengan lokasi hosting brosur Anda
+    public_url = f"https://raw.githubusercontent.com/username/repo/main/static/brochures/{urllib.parse.quote(spec_name)}.pdf"
+    share_msg = f"Check this out: {brand} - {model}\nView Brochure: {public_url}"
+    subject_mail = f"Product Info: {brand} - {model}"
 
     col_title, col_comp = st.columns([3, 1])
     with col_title:
@@ -498,7 +507,7 @@ def show_detail(row, full_df):
         if st.button("🔄 Compare Product", type="primary"):
             st.session_state.compare_base = row
             st.session_state.show_compare = True
-            st.session_state.show_dialog = False # Reset status dialog detail
+            st.session_state.show_dialog = False 
             st.rerun()
 
     st.image(get_image_path(row.get('General Specifications')), width=250) 
@@ -526,48 +535,45 @@ def show_detail(row, full_df):
 
     st.markdown("---")
     
-    spec_name = str(row.get('General Specifications', '')).strip()
     found_path = os.path.join("static", "brochures", f"{spec_name}.pdf")
-    spec_name_encoded = urllib.parse.quote(spec_name)
     
     if os.path.exists(found_path):
-            # Pastikan ketiga variabel ini didefinisikan bersamaan
-            col_dl, col_wa, col_em = st.columns(3)
-            
-            with col_dl:
-                with open(found_path, "rb") as pdf_file:
-                    if st.download_button(
-                        label="📄 Download Brochure",
-                        data=pdf_file,
-                        file_name=f"{spec_name}.pdf",
-                        mime="application/pdf",
-                        key=f"dl_{spec_name}"
-                    ):
-                        log_activity_to_gsheet(st.session_state.username, brand, model, "Download")
-                        st.success("Download tercatat!")
+        # 2. DEFINISIKAN KOLOM (PASTIKAN SEJAJAR)
+        col_dl, col_wa, col_em = st.columns(3)
+        
+        with col_dl:
+            with open(found_path, "rb") as pdf_file:
+                if st.download_button(
+                    label="📄 Download Brochure",
+                    data=pdf_file,
+                    file_name=f"{spec_name}.pdf",
+                    mime="application/pdf",
+                    key=f"dl_{spec_name}"
+                ):
+                    # Logging langsung untuk download button (karena download_button tidak support on_click)
+                    log_activity_to_gsheet(st.session_state.username, brand, model, "Download")
+                    st.success("Download tercatat!")
 
-            with col_wa:
-                wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
-                # Gunakan on_click callback untuk mencegah double logging
-                if st.button("📲 WhatsApp", key=f"wa_btn_{row.name}", use_container_width=True,
-                             on_click=handle_share_logging, 
-                             args=(st.session_state.username, brand, model, "WhatsApp")):
-                    
-                    # Jalankan JS untuk buka tab baru (mencegah refused to connect)
-                    js_wa = f'window.open("{wa_url}", "_blank").focus();'
-                    st.components.v1.html(f'<script>{js_wa}</script>', height=0)
-
-            with col_em:
-                subject_mail = f"Product Info: {brand} - {model}"
-                email_url = f"mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}"
+        with col_wa:
+            wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
+            # Callback digunakan agar data hanya dicatat saat klik tombol terjadi
+            if st.button("📲 WhatsApp", key=f"wa_btn_{row.name}", use_container_width=True,
+                         on_click=handle_share_logging, 
+                         args=(st.session_state.username, brand, model, "WhatsApp")):
                 
-                if st.button("📧 Email", key=f"em_btn_{row.name}", use_container_width=True,
-                             on_click=handle_share_logging, 
-                             args=(st.session_state.username, brand, model, "Email")):
-                    
-                    # Jalankan JS untuk buka aplikasi email
-                    js_em = f'window.location.href = "{email_url}";'
-                    st.components.v1.html(f'<script>{js_em}</script>', height=0)
+                # JavaScript dijalankan hanya jika tombol diklik
+                js_wa = f'window.open("{wa_url}", "_blank").focus();'
+                st.components.v1.html(f'<script>{js_wa}</script>', height=0)
+
+        with col_em:
+            email_url = f"mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}"
+            
+            if st.button("📧 Email", key=f"em_btn_{row.name}", use_container_width=True,
+                         on_click=handle_share_logging, 
+                         args=(st.session_state.username, brand, model, "Email")):
+                
+                js_em = f'window.location.href = "{email_url}";'
+                st.components.v1.html(f'<script>{js_em}</script>', height=0)
     else:
         st.info("Digital brochure is not yet available.")
  
@@ -575,7 +581,7 @@ def show_detail(row, full_df):
     if st.button("Tutup Detail"):
         st.session_state.show_dialog = False
         st.rerun()
-
+        
 # --- MAIN APP ---
 def main():
     if 'logged_in' not in st.session_state: st.session_state.logged_in = False
