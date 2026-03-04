@@ -548,8 +548,8 @@ def show_detail(row, full_df):
         with col_wa:
             wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
             if st.link_button("📲 WhatsApp", wa_url, use_container_width=True):
-            # Catatan: Ini akan mencatat log SETELAH user kembali ke aplikasi
-            log_activity_to_gsheet(st.session_state.username, brand, model, "WhatsApp")
+                # Catatan: Ini akan mencatat log SETELAH user kembali ke aplikasi
+                log_activity_to_gsheet(st.session_state.username, brand, model, "WhatsApp")
             
         # --- LOGIKA EMAIL ---
         with col_email:
