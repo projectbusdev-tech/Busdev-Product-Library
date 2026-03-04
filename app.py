@@ -554,16 +554,13 @@ def show_detail(row, full_df):
                     log_activity_to_gsheet(st.session_state.username, brand, model, "Download")
                     st.success("Download tercatat!")
 
-        with col_wa:
+       with col_wa:
             wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
-            # Callback digunakan agar data hanya dicatat saat klik tombol terjadi
-            if st.button("📲 WhatsApp", key=f"wa_btn_{row.name}", use_container_width=True,
-                         on_click=handle_share_logging, 
-                         args=(st.session_state.username, brand, model, "WhatsApp")):
-                
-                # JavaScript dijalankan hanya jika tombol diklik
-                js_wa = f'window.open("{wa_url}", "_blank").focus();'
-                st.components.v1.html(f'<script>{js_wa}</script>', height=0)
+            # Gunakan st.link_button untuk menghindari blokir browser
+            if st.link_button("📲 WhatsApp", wa_url, use_container_width=True):
+                # Catatan: link_button di Streamlit akan membuka link dulu, 
+                # lalu menjalankan kode di bawahnya (tergantung versi Streamlit)
+                log_activity_to_gsheet(st.session_state.username, brand, model, "WhatsApp")
 
         with col_em:
             email_url = f"mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}"
