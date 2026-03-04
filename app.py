@@ -172,6 +172,17 @@ def show_download_history_page():
 
     # Data Processing
     history_df['Timestamp'] = pd.to_datetime(history_df['Timestamp'])
+
+    # --- LOGIKA FILTER BERDASARKAN ROLE ---
+    # Jika bukan Admin, maka hanya tampilkan data milik user itu sendiri
+    if st.session_state.role != "Admin":
+        history_df = history_df[history_df['Username'] == st.session_state.username]
+        
+        if history_df.empty:
+            st.info("Anda belum memiliki riwayat download.")
+            return
+    # Jika Admin, maka history_df tetap berisi semua data (tanpa filter username)
+
     
     # --- BAGIAN FILTER RANGE TANGGAL ---
     st.subheader("🔍 Filter & Export")
