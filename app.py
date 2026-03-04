@@ -545,7 +545,7 @@ def show_detail(row, full_df):
         subject_mail = f"Product Specs: {brand} - {model}"
         share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
         
-        with col_wa:
+       with col_wa:
             wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
             # Gunakan st.link_button untuk menghindari blokir browser
             if st.link_button("📲 WhatsApp", wa_url, use_container_width=True):
