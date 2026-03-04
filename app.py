@@ -590,14 +590,14 @@ def main():
         st.session_state.logged_in = False
         st.rerun()
     
-    pages = ["Product Library", "Download History"]
+    pages = ["Product Library", "Product Analytics"]
     if st.session_state.role == "Admin":
         pages.extend(["Login History", "User Management"])
     
     selected_page = st.sidebar.selectbox("Navigate to", pages)
 
-    if selected_page == "Download History":
-        show_download_history_page()
+    if selected_page == "Product Analytics":
+        show_product_analytics_page()
     elif selected_page == "Login History":
         show_history_page()
     elif selected_page == "User Management":
