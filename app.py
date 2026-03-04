@@ -474,6 +474,16 @@ def show_comparison(base_row, full_df):
         st.session_state.show_compare = False
         st.rerun()
 
+def handle_share_logging(username, brand, model, record_type):
+    """Callback khusus untuk memastikan logging selesai sebelum aksi browser."""
+    try:
+        log_activity_to_gsheet(username, brand, model, record_type)
+        # Session state ini hanya untuk membantu UI jika diperlukan
+        st.session_state[f"logged_{record_type}"] = True
+    except Exception as e:
+        print(f"Error logging {record_type}: {e}")
+
+
 # --- PRODUCT DETAIL POPUP ---
 @st.dialog("Product Details", width="large")
 def show_detail(row, full_df):
