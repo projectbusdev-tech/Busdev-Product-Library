@@ -568,8 +568,8 @@ def show_detail(row, full_df):
                     # Jalankan JS untuk buka aplikasi email
                     js_em = f'window.location.href = "{email_url}";'
                     st.components.v1.html(f'<script>{js_em}</script>', height=0)
-        else:
-            st.info("Digital brochure is not yet available.")
+    else:
+        st.info("Digital brochure is not yet available.")
  
     st.markdown("---")
     if st.button("Tutup Detail"):
