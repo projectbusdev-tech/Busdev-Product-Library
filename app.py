@@ -249,23 +249,58 @@ def show_download_history_page():
             fig_b = px.bar(brand_counts, x='Brand', y='Counts', color='Brand', 
                            color_discrete_map=color_map, text_auto=True)
             
-            # --- PERBAIKAN SUMBU & LABEL ---
             fig_b.update_layout(
                 showlegend=False, 
-                height=450,
+                height=500, # Sedikit lebih tinggi agar label tidak sesak
                 xaxis_title="Nama Brand",
                 yaxis_title="Total Download (Unit)",
-                font=dict(size=14), # Memperbesar font umum
+                # Mengatur Font Label Sumbu (Besar & Bold)
+                xaxis=dict(
+                    title_font=dict(size=18, family='Arial', color='black'),
+                    tickfont=dict(size=14, color='black', family='Arial Black')
+                ),
+                yaxis=dict(
+                    title_font=dict(size=18, family='Arial', color='black'),
+                    tickfont=dict(size=14)
+                ),
+                margin=dict(t=50, b=80) # Memberi ruang lebih di bawah untuk label sumbu X
             )
+            
+            # Mempertebal angka di atas bar
             fig_b.update_traces(
-                textfont_size=16, # Memperbesar angka di atas bar
+                textfont=dict(size=18, color='black', family='Arial Black'),
                 textposition='outside',
                 cliponaxis=False
             )
-            fig_b.update_xaxes(tickfont=dict(size=14, color='black', family='Arial Black'))
-            fig_b.update_yaxes(tickfont=dict(size=14))
-            
             st.plotly_chart(fig_b, use_container_width=True)
+
+        with c2:
+            st.write("#### by Model (Top 10)")
+            fig_m = px.bar(model_counts.head(10), x='Counts', y='Model', 
+                               orientation='h', text_auto=True, 
+                               color_discrete_sequence=['#2ECC71'])
+            
+            fig_m.update_layout(
+                height=500,
+                xaxis_title="Jumlah Download",
+                yaxis_title="", 
+                # Mengatur Font Label Sumbu X (Besar & Bold)
+                xaxis=dict(
+                    title_font=dict(size=18, family='Arial', color='black'),
+                    tickfont=dict(size=14)
+                ),
+                yaxis=dict(
+                    tickfont=dict(size=14, color='black', family='Arial Narrow'),
+                    categoryorder='total ascending'
+                ),
+                margin=dict(l=150) # Memberi ruang lebih di kiri agar nama model tidak terpotong
+            )
+            
+            fig_m.update_traces(
+                textfont=dict(size=16, color='black', family='Arial Black'),
+                textposition='outside'
+            )
+            st.plotly_chart(fig_m, use_container_width=True)
 
         with c2:
             st.write("#### by Model (Top 10)")
