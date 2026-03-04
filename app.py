@@ -474,13 +474,6 @@ def show_comparison(base_row, full_df):
         st.session_state.show_compare = False
         st.rerun()
 
-
-def handle_share_logging(username, brand, model, record_type):
-    # Fungsi ini khusus dipanggil saat tombol diklik
-    log_activity_to_gsheet(username, brand, model, record_type)
-    st.toast(f"Aktivitas {record_type} berhasil dicatat!")
-
-
 # --- PRODUCT DETAIL POPUP ---
 @st.dialog("Product Details", width="large")
 def show_detail(row, full_df):
@@ -492,14 +485,8 @@ def show_detail(row, full_df):
     floor_type = clean_list_string(row.get('Floor_Type_List'))
     obstacles = clean_list_string(row.get('Obstacle_List'))
     waste_type = clean_list_string(row.get('Waste_Type_List'))
-    
-    # --- 1. DEFINISIKAN PESAN SHARE DI SINI (MENCEGAH NameError) ---
-    spec_name = str(row.get('General Specifications', '')).strip()
-    # Gantilah URL dasar ini sesuai dengan lokasi hosting brosur Anda
-    public_url = f"https://raw.githubusercontent.com/username/repo/main/static/brochures/{urllib.parse.quote(spec_name)}.pdf"
-    share_msg = f"Check this out: {brand} - {model}\nView Brochure: {public_url}"
-    subject_mail = f"Product Info: {brand} - {model}"
 
+    # Judul dan Tombol Compare
     col_title, col_comp = st.columns([3, 1])
     with col_title:
         st.header(f"{brand} - {model}")
@@ -523,57 +510,73 @@ def show_detail(row, full_df):
         st.write(f"**Floor Type:** {floor_type}")
         st.write(f"**Obstacle:** {obstacles}")
         st.write(f"**Waste Type:** {waste_type}")
-        st.write(f"**Operation Mode:** {row.get('Operation_mode', '-')}")
-        st.write(f"**Environment:** {row.get('Environment', '-')}")
-        st.write(f"**Power Source:** {row.get('Power Source', '-')}")
         
     with col2:
         st.subheader("Dimensions & Weight")
         st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg")
         st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
-        st.write(f"**Total Dimensions:** {row.get('Measures_Total', '-')} mm")
 
     st.markdown("---")
     
+    spec_name = str(row.get('General Specifications', '')).strip()
     found_path = os.path.join("static", "brochures", f"{spec_name}.pdf")
+    spec_name_encoded = urllib.parse.quote(spec_name)
     
     if os.path.exists(found_path):
-        # 2. DEFINISIKAN KOLOM (PASTIKAN SEJAJAR)
-        col_dl, col_wa, col_em = st.columns(3)
+        col_dl, col_wa, col_email = st.columns(3) 
         
+        # --- LOGIKA DOWNLOAD ---
         with col_dl:
             with open(found_path, "rb") as pdf_file:
                 if st.download_button(
-                    label="📄 Download Brochure",
-                    data=pdf_file,
-                    file_name=f"{spec_name}.pdf",
+                    label="📄 Download Brochure", 
+                    data=pdf_file, 
+                    file_name=f"{spec_name}.pdf", 
                     mime="application/pdf",
                     key=f"dl_{spec_name}"
                 ):
-                    # Logging langsung untuk download button (karena download_button tidak support on_click)
+                    # Menggunakan fungsi universal yang baru
                     log_activity_to_gsheet(st.session_state.username, brand, model, "Download")
                     st.success("Download tercatat!")
 
+        # Persiapan Link Share
+        public_url = f"{GITHUB_RAW_BASE}static/brochures/{spec_name_encoded}.pdf" 
+        subject_mail = f"Product Specs: {brand} - {model}"
+        share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
+        
+        # --- LOGIKA WHATSAPP ---
         with col_wa:
-            wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
-            # Gunakan st.link_button untuk menghindari blokir browser
-            if st.link_button("📲 WhatsApp", wa_url, use_container_width=True):
-                # Catatan: link_button di Streamlit akan membuka link dulu, 
-                # lalu menjalankan kode di bawahnya (tergantung versi Streamlit)
-                log_activity_to_gsheet(st.session_state.username, brand, model, "WhatsApp")
-
-        with col_em:
-            email_url = f"mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}"
+            # Kita gunakan link murni agar TIDAK BLANK dan TIDAK TERBLOKIR
+            st.markdown(f'''
+                <a href="https://wa.me/?text={urllib.parse.quote(share_msg)}" 
+                   target="_blank" 
+                   class="custom-button wa-button" 
+                   style="text-decoration: none; color: white; background-color: #25D366; padding: 10px; border-radius: 5px; display: block; text-align: center;"
+                   onclick="window.parent.postMessage('log_wa', '*')">
+                   📲 WhatsApp
+                </a>
+            ''', unsafe_allow_html=True)
             
-            if st.button("📧 Email", key=f"em_btn_{row.name}", use_container_width=True,
-                         on_click=handle_share_logging, 
-                         args=(st.session_state.username, brand, model, "Email")):
-                
-                js_em = f'window.location.href = "{email_url}";'
-                st.components.v1.html(f'<script>{js_em}</script>', height=0)
+        # --- LOGIKA EMAIL ---
+        with col_email:
+            st.markdown(f'''
+                <a href="mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}" 
+                   target="_blank" 
+                   class="custom-button email-button"
+                   style="text-decoration: none; color: white; background-color: #EA4335; padding: 10px; border-radius: 5px; display: block; text-align: center;">
+                   📧 Email
+                </a>
+            ''', unsafe_allow_html=True)
+
+        # TRIK: Catat log segera setelah popup dibuka (sebagai "Lead Potential")
+        # atau catat saat user berinteraksi dengan tombol.
+        # Karena kita menggunakan link murni, kita bisa asumsikan jika user membuka detail, 
+        # mereka tertarik. Jika ingin lebih akurat, kita bisa catat log di sini:
+        # log_activity_to_gsheet(st.session_state.username, brand, model, "View Detail")
+
     else:
         st.info("Digital brochure is not yet available.")
- 
+
     st.markdown("---")
     if st.button("Tutup Detail"):
         st.session_state.show_dialog = False
