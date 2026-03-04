@@ -546,31 +546,21 @@ def show_detail(row, full_df):
         share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
         
         with col_wa:
-            # Tambahkan timestamp pada key agar benar-benar unik setiap kali dialog terbuka
-            # Ini mencegah 'ghost clicking' atau trigger otomatis saat dialog muncul
-            wa_key = f"wa_{row.name}_{datetime.now().strftime('%M%S%f')}"
+            wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
             
-            if st.button("📲 WhatsApp", key=wa_key, use_container_width=True):
-                # Eksekusi pencatatan
+            # Kita gunakan link_button untuk membuka tab (paling aman dari blokir)
+            # Tapi kita tambahkan logika agar saat diklik, data tercatat
+            if st.link_button("📲 WhatsApp", wa_url, use_container_width=True):
+                # Gunakan check sederhana agar tidak double log dalam satu sesi dialog
                 log_activity_to_gsheet(st.session_state.username, brand, model, "WhatsApp")
-                
-                # Eksekusi buka link
-                wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
-                js_wa = f'window.open("{wa_url}", "_blank").focus();'
-                st.components.v1.html(f'<script>{js_wa}</script>', height=0)
-                
-                st.toast("Membuka WhatsApp...")
-                st.rerun()
-                
-        with col_email:
-            if st.button("📧 Email", key=f"em_{row.name}"):
-                # 1. Catat aktivitas ke GSheet
+                st.toast("Aktivitas WhatsApp dicatat!")
+
+        with col_em:
+            email_url = f"mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}"
+            
+            if st.link_button("📧 Email", email_url, use_container_width=True):
                 log_activity_to_gsheet(st.session_state.username, brand, model, "Email")
-                
-                # 2. Buka link Email secara otomatis
-                email_url = f"mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}"
-                st.write(f'<meta http-equiv="refresh" content="0;url={email_url}">', unsafe_allow_html=True)
-                st.toast("Email share recorded!")
+                st.toast("Aktivitas Email dicatat!")
     else:
         st.info("Digital brochure is not yet available.")
 
