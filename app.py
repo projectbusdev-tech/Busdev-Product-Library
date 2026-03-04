@@ -552,8 +552,7 @@ def show_detail(row, full_df):
                 # Catatan: link_button di Streamlit akan membuka link dulu, 
                 # lalu menjalankan kode di bawahnya (tergantung versi Streamlit)
                 log_activity_to_gsheet(st.session_state.username, brand, model, "WhatsApp")
-                st.rerun()
-
+                
         with col_email:
             if st.button("📧 Email", key=f"em_{row.name}"):
                 # 1. Catat aktivitas ke GSheet
