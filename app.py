@@ -630,15 +630,14 @@ def show_detail(row, full_df):
 
 
 def filter_analytics_page():
-    st.title("📊 Filter Analytics Dashboard")
-    st.write("Analisis preferensi filter berdasarkan klik 'View Details' pengguna.")
+    st.title("📊 Filter Analytics")
 
     try:
         # Gunakan fungsi load_gsheet_data yang sudah ada
         data = load_gsheet_data("FilterLogs")
 
         if data.empty:
-            st.warning("Belum ada data analytics yang tercatat di sheet 'FilterLogs'.")
+            st.warning("No Data.")
             return
           
         # --- Visualisasi 1: Top Floor Type yang Dicari ---
@@ -663,14 +662,14 @@ def filter_analytics_page():
             # Mengatur tampilan teks dan font agar lebih besar dan jelas
             fig_floor.update_traces(
                 textposition='outside', 
-                textfont=dict(size=14, color='black') # Ukuran angka di atas batang
+                textfont=dict(size=16, color='black') # Ukuran angka di atas batang
             )
 
             fig_floor.update_layout(
                 xaxis_title="Tipe Lantai",
                 yaxis_title="Jumlah Pencarian",
-                font=dict(size=14), # Ukuran font label sumbu X dan Y
-                uniformtext_minsize=12,
+                font=dict(size=16), # Ukuran font label sumbu X dan Y
+                uniformtext_minsize=14,
                 uniformtext_mode='hide',
                 height=500,
                 margin=dict(l=20, r=20, t=20, b=20)
@@ -678,7 +677,7 @@ def filter_analytics_page():
 
             st.plotly_chart(fig_floor, use_container_width=True)
         else:
-            st.info("Belum ada data untuk Floor Type")
+            st.info("No Floor Type data.")
 
         # --- Visualisasi 2: Obstacle Frequency & Aisle Category ---
         col1, col2 = st.columns(2)
@@ -706,11 +705,11 @@ def filter_analytics_page():
                 st.info("No data for Aisle Category")
 
         # --- Tabel Data Mentah ---
-        with st.expander("Lihat Data Mentah"):
+        with st.expander("View Data Details"):
             st.dataframe(data.iloc[::-1], use_container_width=True)
 
     except Exception as e:
-        st.error(f"Gagal memuat dashboard: {e}")
+        st.error(f"Failed to load Dashboard: {e}")
        
 # --- MAIN APP ---
 def main():
