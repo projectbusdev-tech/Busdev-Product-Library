@@ -246,83 +246,52 @@ def show_download_history_page():
 
         with c1:
             st.write("#### by Brand")
+            # Kita gabungkan Brand dan Counts untuk label di dalam bar
             fig_b = px.bar(brand_counts, x='Brand', y='Counts', color='Brand', 
-                           color_discrete_map=color_map, text_auto=True)
+                           color_discrete_map=color_map,
+                           text='Brand') # Menjadikan nama Brand sebagai teks
             
             fig_b.update_layout(
                 showlegend=False, 
-                height=500, # Sedikit lebih tinggi agar label tidak sesak
-                xaxis_title="Nama Brand",
+                height=500,
+                xaxis_title="", # Hilangkan karena label sudah di dalam
                 yaxis_title="Total Download (Unit)",
-                # Mengatur Font Label Sumbu (Besar & Bold)
-                xaxis=dict(
-                    title_font=dict(size=18, family='Arial', color='black'),
-                    tickfont=dict(size=14, color='black', family='Arial Black')
-                ),
-                yaxis=dict(
-                    title_font=dict(size=18, family='Arial', color='black'),
-                    tickfont=dict(size=14)
-                ),
-                margin=dict(t=50, b=80) # Memberi ruang lebih di bawah untuk label sumbu X
+                yaxis=dict(title_font=dict(size=18, color='black')),
+                margin=dict(t=20, b=20)
             )
             
-            # Mempertebal angka di atas bar
             fig_b.update_traces(
-                textfont=dict(size=18, color='black', family='Arial Black'),
-                textposition='outside',
-                cliponaxis=False
+                textposition='inside', # Paksa masuk ke dalam bar
+                insidetextanchor='middle', # Posisi di tengah bar
+                textfont=dict(size=20, color='white', family='Arial Black'), # Font besar & putih agar kontras
             )
+            # Menambahkan angka download di atas bar (sebagai anotasi)
+            fig_b.update_traces(texttemplate='%{text}<br>%{y} dls') 
+            
             st.plotly_chart(fig_b, use_container_width=True)
 
         with c2:
             st.write("#### by Model (Top 10)")
             fig_m = px.bar(model_counts.head(10), x='Counts', y='Model', 
-                               orientation='h', text_auto=True, 
+                               orientation='h', 
+                               text='Model', # Menjadikan nama Model sebagai teks
                                color_discrete_sequence=['#2ECC71'])
             
             fig_m.update_layout(
                 height=500,
                 xaxis_title="Jumlah Download",
-                yaxis_title="", 
-                # Mengatur Font Label Sumbu X (Besar & Bold)
-                xaxis=dict(
-                    title_font=dict(size=18, family='Arial', color='black'),
-                    tickfont=dict(size=14)
-                ),
-                yaxis=dict(
-                    tickfont=dict(size=14, color='black', family='Arial Narrow'),
-                    categoryorder='total ascending'
-                ),
-                margin=dict(l=150) # Memberi ruang lebih di kiri agar nama model tidak terpotong
+                yaxis_title="",
+                xaxis=dict(title_font=dict(size=18, color='black')),
+                yaxis=dict(showticklabels=False), # Hilangkan label sumbu Y di kiri agar rapi
+                margin=dict(l=20)
             )
             
             fig_m.update_traces(
-                textfont=dict(size=16, color='black', family='Arial Black'),
-                textposition='outside'
+                textposition='inside',
+                insidetextanchor='start', # Rata kiri di dalam batang
+                textfont=dict(size=16, color='white', family='Arial Black'),
+                texttemplate='  %{text} (%{x})' # Format: Nama Model (Jumlah)
             )
-            st.plotly_chart(fig_m, use_container_width=True)
-
-        with c2:
-            st.write("#### by Model (Top 10)")
-            fig_m = px.bar(model_counts.head(10), x='Counts', y='Model', 
-                               orientation='h', text_auto=True, 
-                               color_discrete_sequence=['#2ECC71'])
-            
-            # --- PERBAIKAN SUMBU & LABEL ---
-            fig_m.update_layout(
-                height=450,
-                xaxis_title="Jumlah Download",
-                yaxis_title="", # Kosongkan karena nama model sudah jelas
-                font=dict(size=13),
-                yaxis={'categoryorder':'total ascending'}
-            )
-            fig_m.update_traces(
-                textfont_size=14, 
-                textposition='outside'
-            )
-            # Memperbesar font nama model agar mudah dibaca di sisi kiri
-            fig_m.update_yaxes(tickfont=dict(size=14, color='black'))
-            
             st.plotly_chart(fig_m, use_container_width=True)
 
         # Download Button
