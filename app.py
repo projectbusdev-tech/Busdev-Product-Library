@@ -157,6 +157,11 @@ def signup_dialog():
             else:
                 st.warning(msg)
 
+def handle_share_logging(username, brand, model, record_type):
+    # Fungsi ini khusus dipanggil saat tombol diklik
+    log_activity_to_gsheet(username, brand, model, record_type)
+    st.toast(f"Aktivitas {record_type} berhasil dicatat!")
+
 # --- PAGES ---
 
 def show_product_analytics_page():
@@ -546,21 +551,24 @@ def show_detail(row, full_df):
         share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
         
         with col_wa:
-            wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
-            
-            # Kita gunakan link_button untuk membuka tab (paling aman dari blokir)
-            # Tapi kita tambahkan logika agar saat diklik, data tercatat
-            if st.link_button("📲 WhatsApp", wa_url, use_container_width=True):
-                # Gunakan check sederhana agar tidak double log dalam satu sesi dialog
-                log_activity_to_gsheet(st.session_state.username, brand, model, "WhatsApp")
-                st.toast("Aktivitas WhatsApp dicatat!")
+            # Gunakan on_click agar data PASTI tercatat lebih dulu
+            if st.button("📲 WhatsApp", key=f"wa_real_{row.name}", use_container_width=True,
+                         on_click=handle_share_logging, 
+                         args=(st.session_state.username, brand, model, "WhatsApp")):
+                
+                # Setelah logging sukses, baru buka link
+                wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
+                js = f'window.open("{wa_url}", "_blank").focus();'
+                st.components.v1.html(f'<script>{js}</script>', height=0)
 
         with col_em:
-            email_url = f"mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}"
-            
-            if st.link_button("📧 Email", email_url, use_container_width=True):
-                log_activity_to_gsheet(st.session_state.username, brand, model, "Email")
-                st.toast("Aktivitas Email dicatat!")
+            if st.button("📧 Email", key=f"em_real_{row.name}", use_container_width=True,
+                         on_click=handle_share_logging, 
+                         args=(st.session_state.username, brand, model, "Email")):
+                
+                email_url = f"mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}"
+                js = f'window.location.href = "{email_url}";'
+                st.components.v1.html(f'<script>{js}</script>', height=0)
     else:
         st.info("Digital brochure is not yet available.")
 
