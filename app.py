@@ -546,12 +546,21 @@ def show_detail(row, full_df):
         share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
         
         with col_wa:
-            wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
-            # Gunakan st.link_button untuk menghindari blokir browser
-            if st.link_button("📲 WhatsApp", wa_url, use_container_width=True):
-                # Catatan: link_button di Streamlit akan membuka link dulu, 
-                # lalu menjalankan kode di bawahnya (tergantung versi Streamlit)
+            # Tambahkan timestamp pada key agar benar-benar unik setiap kali dialog terbuka
+            # Ini mencegah 'ghost clicking' atau trigger otomatis saat dialog muncul
+            wa_key = f"wa_{row.name}_{datetime.now().strftime('%M%S%f')}"
+            
+            if st.button("📲 WhatsApp", key=wa_key, use_container_width=True):
+                # Eksekusi pencatatan
                 log_activity_to_gsheet(st.session_state.username, brand, model, "WhatsApp")
+                
+                # Eksekusi buka link
+                wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
+                js_wa = f'window.open("{wa_url}", "_blank").focus();'
+                st.components.v1.html(f'<script>{js_wa}</script>', height=0)
+                
+                st.toast("Membuka WhatsApp...")
+                st.rerun()
                 
         with col_email:
             if st.button("📧 Email", key=f"em_{row.name}"):
