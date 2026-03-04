@@ -102,6 +102,50 @@ def log_activity_to_gsheet(username, brand, model, record_type):
     except Exception as e:
         st.error(f"Gagal mencatat log {record_type}: {e}")
 
+def log_filter_to_gsheet(username, filters):
+    try:
+        # Mengambil data lama dari sheet FilterLogs
+        history_df = load_gsheet_data("FilterLogs")
+        wib_now = datetime.now() + timedelta(hours=7)
+        timestamp = wib_now.strftime("%Y-%m-%d %H:%M:%S")
+
+        base_data = {
+            "Timestamp": timestamp,
+            "Username": username,
+            "Brand_Filter": filters.get('brand', 'All'),
+            "Area_Filter": filters.get('area', 0),
+            "Slope_Filter": filters.get('slope', 0)
+        }
+
+        multi_map = {
+            'Product Type': filters.get('product_type', []),
+            'Environment': filters.get('environment', []),
+            'Floor Type': filters.get('floor_type', []),
+            'Aisle Category': filters.get('aisle_cat', []),
+            'Obstacle': filters.get('obstacle', []),
+            'Waste Type': filters.get('waste_type', [])
+        }
+
+        new_rows = []
+        for category, values in multi_map.items():
+            if isinstance(values, list) and len(values) > 0:
+                for val in values:
+                    row = base_data.copy()
+                    row["Category"] = category
+                    row["Value"] = val
+                    new_rows.append(row)
+            else:
+                row = base_data.copy()
+                row["Category"] = category
+                row["Value"] = "All"
+                new_rows.append(row)
+
+        new_entries_df = pd.DataFrame(new_rows)
+        updated_df = pd.concat([history_df, new_entries_df], ignore_index=True)
+        conn.update(worksheet="FilterLogs", data=updated_df)
+    except Exception as e:
+        st.error(f"Gagal mencatat log filter: {e}")
+
 def load_registered_users():
     """Membaca data user dari Google Sheets secara real-time."""
     try:
@@ -590,14 +634,13 @@ def filter_analytics_page():
     st.write("Analisis preferensi filter berdasarkan klik 'View Details' pengguna.")
 
     try:
-        # Ambil data dari GSheet
-        sheet_filter = client.open("UserDB_PdLibrary").worksheet("FilterLogs")
-        data = pd.DataFrame(sheet_filter.get_all_records())
+        # Gunakan fungsi load_gsheet_data yang sudah ada
+        data = load_gsheet_data("FilterLogs")
 
         if data.empty:
-            st.warning("Belum ada data analytics yang tercatat.")
+            st.warning("Belum ada data analytics yang tercatat di sheet 'FilterLogs'.")
             return
-
+          
         # --- Visualisasi 1: Top Floor Type yang Dicari ---
         st.subheader("Most Searched Floor Types")
         floor_data = data[data['Category'] == 'Floor Type']
@@ -652,7 +695,7 @@ def main():
     if selected_page == "Product Analytics":
         show_product_analytics_page()
     elif selected_page == "Filter Analytics":
-        show_filter_analytics_page()
+        filter_analytics_page()
     elif selected_page == "Login History":
         show_history_page()
     elif selected_page == "User Management":
@@ -767,15 +810,15 @@ def main():
                         # Sesuaikan nama variabel di kanan (ptype_filter, dll) 
                         # dengan nama variabel widget multiselect/slider Anda
                         current_filters = {
-                            'brand': brand_filter,
-                            'product_type': ptype_filter,   # Ini list (multi-select)
-                            'environment': env_filter,      # Ini list (multi-select)
-                            'floor_type': floor_filter,     # Ini list (multi-select)
-                            'area': area_slider,
-                            'slope': slope_slider,
-                            'aisle_cat': aisle_filter,      # Ini list (multi-select)
-                            'obstacle': obs_filter,         # Ini list (multi-select)
-                            'waste_type': waste_filter      # Ini list (multi-select)
+                            'brand': pilihan_produk,      # Sesuai baris 716
+                            'product_type': filter_type,  # Sesuai baris 719
+                            'environment': filter_env,    # Sesuai baris 722
+                            'floor_type': filter_floor,   # Sesuai baris 725
+                            'area': filter_area,          # Sesuai baris 728
+                            'slope': filter_slope,        # Sesuai baris 731
+                            'aisle_cat': filter_aisle_cat, # Sesuai baris 734
+                            'obstacle': selected_obstacles, # Sesuai baris 738
+                            'waste_type': selected_wastes   # Sesuai baris 747
                         }
                 
                         # --- GANTI ON_CLICK KE WRAPPER ---
