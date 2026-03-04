@@ -546,15 +546,17 @@ def show_detail(row, full_df):
         share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
         
         with col_wa:
-            # Menggunakan st.button agar bisa menjalankan fungsi Python
+            # Gunakan key unik agar tidak error jika ada banyak produk
             if st.button("📲 WhatsApp", key=f"wa_{row.name}"):
-                # 1. Catat aktivitas ke GSheet
+                # 1. Catat aktivitas ke GSheet (Python side)
                 log_activity_to_gsheet(st.session_state.username, brand, model, "WhatsApp")
                 
-                # 2. Buka link WhatsApp secara otomatis
+                # 2. Buka link di Tab Baru menggunakan JavaScript (Client side)
                 wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
-                st.write(f'<meta http-equiv="refresh" content="0;url={wa_url}">', unsafe_allow_html=True)
-                st.toast("WhatsApp share recorded!")
+                js = f'window.open("{wa_url}", "_blank").focus();'
+                st.components.v1.html(f'<script>{js}</script>', height=0)
+                
+                st.toast("Membuka WhatsApp...")
         with col_email:
             if st.button("📧 Email", key=f"em_{row.name}"):
                 # 1. Catat aktivitas ke GSheet
