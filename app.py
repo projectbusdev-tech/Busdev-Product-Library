@@ -554,35 +554,27 @@ def show_detail(row, full_df):
         subject_mail = f"Product Specs: {brand} - {model}"
         share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
         
-        # --- LOGIKA WHATSAPP ---
         with col_wa:
-            # Kita gunakan link murni agar TIDAK BLANK dan TIDAK TERBLOKIR
-            st.markdown(f'''
-                <a href="https://wa.me/?text={urllib.parse.quote(share_msg)}" 
-                   target="_blank" 
-                   class="custom-button wa-button" 
-                   style="text-decoration: none; color: white; background-color: #25D366; padding: 10px; border-radius: 5px; display: block; text-align: center;"
-                   onclick="window.parent.postMessage('log_wa', '*')">
-                   📲 WhatsApp
-                </a>
-            ''', unsafe_allow_html=True)
-            
-        # --- LOGIKA EMAIL ---
-        with col_email:
-            st.markdown(f'''
-                <a href="mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}" 
-                   target="_blank" 
-                   class="custom-button email-button"
-                   style="text-decoration: none; color: white; background-color: #EA4335; padding: 10px; border-radius: 5px; display: block; text-align: center;">
-                   📧 Email
-                </a>
-            ''', unsafe_allow_html=True)
+            wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
+            # Gunakan on_click untuk menjamin eksekusi log
+            if st.button("📲 WhatsApp", key=f"wa_btn_{row.name}", use_container_width=True,
+                         on_click=handle_share_logging, 
+                         args=(st.session_state.username, brand, model, "WhatsApp")):
+                
+                # Membuka link hanya SETELAH callback logging dijalankan
+                js_wa = f'window.open("{wa_url}", "_blank").focus();'
+                st.components.v1.html(f'<script>{js_wa}</script>', height=0)
+                st.toast("WhatsApp activity recorded!")
 
-        # TRIK: Catat log segera setelah popup dibuka (sebagai "Lead Potential")
-        # atau catat saat user berinteraksi dengan tombol.
-        # Karena kita menggunakan link murni, kita bisa asumsikan jika user membuka detail, 
-        # mereka tertarik. Jika ingin lebih akurat, kita bisa catat log di sini:
-        # log_activity_to_gsheet(st.session_state.username, brand, model, "View Detail")
+        with col_em:
+            email_url = f"mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}"
+            if st.button("📧 Email", key=f"em_btn_{row.name}", use_container_width=True,
+                         on_click=handle_share_logging, 
+                         args=(st.session_state.username, brand, model, "Email")):
+                
+                js_em = f'window.location.href = "{email_url}";'
+                st.components.v1.html(f'<script>{js_em}</script>', height=0)
+                st.toast("Email activity recorded!")
 
     else:
         st.info("Digital brochure is not yet available.")
