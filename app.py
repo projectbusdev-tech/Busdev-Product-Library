@@ -566,7 +566,7 @@ def show_detail(row, full_df):
                 st.components.v1.html(f'<script>{js_wa}</script>', height=0)
                 st.toast("WhatsApp activity recorded!")
 
-        with col_em:
+        with col_email:
             email_url = f"mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}"
             if st.button("📧 Email", key=f"em_btn_{row.name}", use_container_width=True,
                          on_click=handle_share_logging, 
