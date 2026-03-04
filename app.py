@@ -583,7 +583,48 @@ def show_detail(row, full_df):
     if st.button("Tutup Detail"):
         st.session_state.show_dialog = False
         st.rerun()
+
+
+def filter_analytics_page():
+    st.title("📊 Filter Analytics Dashboard")
+    st.write("Analisis preferensi filter berdasarkan klik 'View Details' pengguna.")
+
+    try:
+        # Ambil data dari GSheet
+        sheet_filter = client.open("UserDB_PdLibrary").worksheet("FilterLogs")
+        data = pd.DataFrame(sheet_filter.get_all_records())
+
+        if data.empty:
+            st.warning("Belum ada data analytics yang tercatat.")
+            return
+
+        # --- Visualisasi 1: Top Floor Type yang Dicari ---
+        st.subheader("Most Searched Floor Types")
+        floor_data = data[data['Category'] == 'Floor Type']
+        if not floor_data.empty:
+            floor_counts = floor_data['Value'].value_counts().reset_index()
+            st.bar_chart(data=floor_counts, x='Value', y='count', color="#25D366")
+
+        # --- Visualisasi 2: Top Waste Type vs Product Type ---
+        col1, col2 = st.columns(2)
         
+        with col1:
+            st.subheader("Obstacle Frequency")
+            obs_data = data[data['Category'] == 'Obstacle']['Value'].value_counts()
+            st.pie_chart(obs_data) # Jika versi streamlit mendukung, atau gunakan plotly
+
+        with col2:
+            st.subheader("Aisle Category Demand")
+            aisle_data = data[data['Category'] == 'Aisle Category']['Value'].value_counts()
+            st.bar_chart(aisle_data)
+
+        # --- Tabel Data Mentah ---
+        with st.expander("Lihat Data Mentah"):
+            st.dataframe(data)
+
+    except Exception as e:
+        st.error(f"Gagal memuat dashboard: {e}")
+       
 # --- MAIN APP ---
 def main():
     if 'logged_in' not in st.session_state: st.session_state.logged_in = False
@@ -602,7 +643,7 @@ def main():
         st.session_state.logged_in = False
         st.rerun()
     
-    pages = ["Product Library", "Product Analytics"]
+    pages = ["Product Library", "Product Analytics" , "Filter Analytics"]
     if st.session_state.role == "Admin":
         pages.extend(["Login History", "User Management"])
     
@@ -610,6 +651,8 @@ def main():
 
     if selected_page == "Product Analytics":
         show_product_analytics_page()
+    elif selected_page == "Filter Analytics":
+        show_filter_analytics_page()
     elif selected_page == "Login History":
         show_history_page()
     elif selected_page == "User Management":
@@ -702,6 +745,14 @@ def main():
 
         st.divider()
         st.subheader(f"Results: {len(res)} Products Found")
+
+        def handle_view_details(row, filters):
+            # 1. Jalankan logging filter (Pecah baris otomatis)
+            log_filter_to_gsheet(st.session_state.username, filters)
+    
+            # 2. Jalankan fungsi buka detail yang sudah Anda miliki
+            click_detail(row)
+        
         
         if len(res) > 0:
             cols = st.columns(3)
@@ -711,7 +762,29 @@ def main():
                         st.image(get_image_path(row['General Specifications']))
                         st.markdown(f"**{row['Brand']}**")
                         st.caption(row.get('Model Variations', '-'))
-                        st.button("View Details", key=f"btn_{index}", on_click=click_detail, args=(row,))
+                
+                        # --- KUMPULKAN FILTER YANG SEDANG AKTIF ---
+                        # Sesuaikan nama variabel di kanan (ptype_filter, dll) 
+                        # dengan nama variabel widget multiselect/slider Anda
+                        current_filters = {
+                            'brand': brand_filter,
+                            'product_type': ptype_filter,   # Ini list (multi-select)
+                            'environment': env_filter,      # Ini list (multi-select)
+                            'floor_type': floor_filter,     # Ini list (multi-select)
+                            'area': area_slider,
+                            'slope': slope_slider,
+                            'aisle_cat': aisle_filter,      # Ini list (multi-select)
+                            'obstacle': obs_filter,         # Ini list (multi-select)
+                            'waste_type': waste_filter      # Ini list (multi-select)
+                        }
+                
+                        # --- GANTI ON_CLICK KE WRAPPER ---
+                        st.button(
+                            "View Details", 
+                            key=f"btn_{index}", 
+                            on_click=handle_view_details, 
+                            args=(row, current_filters) # Kirim row DAN data filter
+                        )
         else:
             st.warning("No products match these filters.")
                 
