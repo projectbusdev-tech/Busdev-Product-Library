@@ -648,22 +648,34 @@ def filter_analytics_page():
             floor_counts = floor_data['Value'].value_counts().reset_index()
             st.bar_chart(data=floor_counts, x='Value', y='count', color="#25D366")
 
-        # --- Visualisasi 2: Top Waste Type vs Product Type ---
+        # --- Visualisasi 2: Obstacle Frequency & Aisle Category ---
         col1, col2 = st.columns(2)
         
         with col1:
             st.subheader("Obstacle Frequency")
-            obs_data = data[data['Category'] == 'Obstacle']['Value'].value_counts()
-            st.pie_chart(obs_data) # Jika versi streamlit mendukung, atau gunakan plotly
+            obs_df = data[data['Category'] == 'Obstacle']
+            if not obs_df.empty:
+                obs_counts = obs_df['Value'].value_counts().reset_index()
+                # PERBAIKAN: Menggunakan Plotly Express untuk Pie Chart
+                fig_pie = px.pie(obs_counts, values='count', names='Value', 
+                                 hole=0.3, color_discrete_sequence=px.colors.sequential.RdBu)
+                fig_pie.update_layout(height=400)
+                st.plotly_chart(fig_pie, use_container_width=True)
+            else:
+                st.info("No data for Obstacles")
 
         with col2:
             st.subheader("Aisle Category Demand")
-            aisle_data = data[data['Category'] == 'Aisle Category']['Value'].value_counts()
-            st.bar_chart(aisle_data)
+            aisle_df = data[data['Category'] == 'Aisle Category']
+            if not aisle_df.empty:
+                aisle_counts = aisle_df['Value'].value_counts().reset_index()
+                st.bar_chart(data=aisle_counts, x='Value', y='count', color="#0078D4")
+            else:
+                st.info("No data for Aisle Category")
 
         # --- Tabel Data Mentah ---
         with st.expander("Lihat Data Mentah"):
-            st.dataframe(data)
+            st.dataframe(data.iloc[::-1], use_container_width=True)
 
     except Exception as e:
         st.error(f"Gagal memuat dashboard: {e}")
