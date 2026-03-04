@@ -546,21 +546,12 @@ def show_detail(row, full_df):
         share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
         
         with col_wa:
-            # Gunakan st.button biasa (bukan link_button) agar kita punya kendali penuh
-            if st.button("📲 WhatsApp", key=f"wa_btn_{row.name}", use_container_width=True):
-                # 1. Catat ke GSheet (Hanya jalan 1x saat tombol diklik)
+            wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
+            # Gunakan st.link_button untuk menghindari blokir browser
+            if st.link_button("📲 WhatsApp", wa_url, use_container_width=True):
+                # Catatan: link_button di Streamlit akan membuka link dulu, 
+                # lalu menjalankan kode di bawahnya (tergantung versi Streamlit)
                 log_activity_to_gsheet(st.session_state.username, brand, model, "WhatsApp")
-                
-                # 2. Logic buka link via JavaScript agar tidak terblokir iframe
-                wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
-                js_code = f'window.open("{wa_url}", "_blank").focus();'
-                st.components.v1.html(f'<script>{js_code}</script>', height=0)
-                
-                # 3. Beri feedback ke user
-                st.toast("Membuka WhatsApp...")
-                
-                # 4. Paksa rerun agar status tombol reset ke False (Mencegah double log saat dialog ditutup)
-                st.rerun()
 
         with col_email:
             if st.button("📧 Email", key=f"em_{row.name}"):
