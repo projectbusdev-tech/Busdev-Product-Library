@@ -537,7 +537,8 @@ def show_detail(row, full_df):
                     mime="application/pdf",
                     key=f"dl_{spec_name}"
                 ):
-                    log_activity_to_gsheet(st.session_state.username, brand, model)
+                    # PERBAIKAN: Tambahkan argumen ke-4 yaitu "Download"
+                    log_activity_to_gsheet(st.session_state.username, brand, model, "Download")
                     st.success("Download tercatat!")
 
         public_url = f"{GITHUB_RAW_BASE}static/brochures/{spec_name_encoded}.pdf" 
