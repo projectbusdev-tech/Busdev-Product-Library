@@ -639,8 +639,44 @@ def filter_analytics_page():
         if data.empty:
             st.warning("No Data.")
             return
-          
-        # --- Visualisasi 1: Top Floor Type yang Dicari ---
+
+        # --- Visualisasi 1: Environment Preference (TAMBAHAN BARU - Full Width) ---
+        st.divider()
+        st.subheader("Environment Preference")
+        env_df = data[data['Category'] == 'Environment']
+        if not env_df.empty:
+            env_counts = env_df['Value'].value_counts().reset_index()
+            env_counts.columns = ['Environment', 'Count']
+            # Gabungkan Nama Lingkungan + Angka
+            env_counts['Full_Label'] = env_counts['Environment'] + "<br>" + env_counts['Count'].astype(str)
+
+            fig_env = px.bar(
+                env_counts, 
+                x='Environment', 
+                y='Count',
+                text='Full_Label',
+                color_discrete_sequence=['#E67E22'] # Warna Oranye Gelap agar kontras dengan teks putih
+            )
+
+            fig_env.update_traces(
+                textposition='inside',
+                insidetextanchor='middle',
+                textfont=dict(size=16, color='white', family='Arial Black')
+            )
+
+            fig_env.update_layout(
+                xaxis_title="",
+                yaxis_title="Jumlah Pencarian",
+                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
+                height=450,
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
+            st.plotly_chart(fig_env, use_container_width=True)
+        else:
+            st.info("Belum ada data untuk Environment")
+
+        
+        # --- Visualisasi 2: Top Floor Type yang Dicari ---
         st.subheader("Most Searched Floor Types")
         floor_data = data[data['Category'] == 'Floor Type']
 
@@ -687,9 +723,9 @@ def filter_analytics_page():
             st.info("No Floor Type data.")
 
         
-        # --- Visualisasi 2: Obstacle Frequency (Full Width) ---
+        # --- Visualisasi 3: Obstacle Preference (Full Width) ---
         st.divider() # Garis pemisah agar rapi
-        st.subheader("Obstacle Frequency")
+        st.subheader("Obstacle Preference")
         obs_df = data[data['Category'] == 'Obstacle']
         
         if not obs_df.empty:
@@ -720,7 +756,44 @@ def filter_analytics_page():
         else:
             st.info("No data for Obstacles")
 
-        # --- Visualisasi 3: Aisle Category Demand (Full Width & Di Bawah) ---
+        # --- Visualisasi 3: Waste Type Preference (TAMBAHAN BARU - Full Width) ---
+        st.divider()
+        st.subheader("Waste Type Preference")
+        waste_df = data[data['Category'] == 'Waste Type']
+        
+        if not waste_df.empty:
+            waste_counts = waste_df['Value'].value_counts().reset_index()
+            waste_counts.columns = ['Waste Type', 'Count']
+            
+            # Membuat label gabungan: Jenis Sampah + Angka
+            waste_counts['Full_Label'] = waste_counts['Waste Type'] + "<br>" + waste_counts['Count'].astype(str)
+
+            fig_waste = px.bar(
+                waste_counts, 
+                x='Waste Type', 
+                y='Count',
+                text='Full_Label',
+                color_discrete_sequence=['#8E44AD'] # Warna Ungu Solid yang elegan dan kontras
+            )
+
+            fig_waste.update_traces(
+                textposition='inside',
+                insidetextanchor='middle',
+                textfont=dict(size=16, color='white', family='Arial Black')
+            )
+
+            fig_waste.update_layout(
+                xaxis_title="",
+                yaxis_title="Jumlah Pencarian",
+                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
+                height=450,
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
+            st.plotly_chart(fig_waste, use_container_width=True)
+        else:
+            st.info("Belum ada data untuk Waste Type")
+
+        # --- Visualisasi 4: Aisle Category Demand (Full Width & Di Bawah) ---
         st.divider()
         st.subheader("Aisle Category Demand")
         aisle_df = data[data['Category'] == 'Aisle Category']
@@ -758,41 +831,7 @@ def filter_analytics_page():
         else:
             st.info("No data for Aisle Category")
 
-        # --- Visualisasi 4: Environment Preference (TAMBAHAN BARU - Full Width) ---
-        st.divider()
-        st.subheader("Environment Preference")
-        env_df = data[data['Category'] == 'Environment']
-        if not env_df.empty:
-            env_counts = env_df['Value'].value_counts().reset_index()
-            env_counts.columns = ['Environment', 'Count']
-            # Gabungkan Nama Lingkungan + Angka
-            env_counts['Full_Label'] = env_counts['Environment'] + "<br>" + env_counts['Count'].astype(str)
-
-            fig_env = px.bar(
-                env_counts, 
-                x='Environment', 
-                y='Count',
-                text='Full_Label',
-                color_discrete_sequence=['#E67E22'] # Warna Oranye Gelap agar kontras dengan teks putih
-            )
-
-            fig_env.update_traces(
-                textposition='inside',
-                insidetextanchor='middle',
-                textfont=dict(size=16, color='white', family='Arial Black')
-            )
-
-            fig_env.update_layout(
-                xaxis_title="",
-                yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
-                height=450,
-                margin=dict(l=20, r=20, t=20, b=20)
-            )
-            st.plotly_chart(fig_env, use_container_width=True)
-        else:
-            st.info("Belum ada data untuk Environment")
-
+        
         # --- Tabel Data Mentah ---
         with st.expander("View Data Details"):
             st.dataframe(data.iloc[::-1], use_container_width=True)
