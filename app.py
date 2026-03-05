@@ -687,87 +687,76 @@ def filter_analytics_page():
             st.info("No Floor Type data.")
 
         
-        # --- Visualisasi 2: Obstacle Frequency & Aisle Category ---
-        col1, col2 = st.columns(2)
+        # --- Visualisasi 2: Obstacle Frequency (Full Width) ---
+        st.divider() # Garis pemisah agar rapi
+        st.subheader("Obstacle Frequency")
+        obs_df = data[data['Category'] == 'Obstacle']
         
-        with col1:
-            st.subheader("Obstacle Frequency")
-            obs_df = data[data['Category'] == 'Obstacle']
-            if not obs_df.empty:
-                obs_counts = obs_df['Value'].value_counts().reset_index()
-                # PERBAIKAN: Menggunakan Plotly Express untuk Pie Chart
-                fig_pie = px.pie(obs_counts, values='count', names='Value', 
-                                 hole=0.3, color_discrete_sequence=px.colors.sequential.RdBu)
-                fig_pie.update_layout(height=400)
-                
-                # PERBAIKAN: Persentase di DALAM, Label di LUAR
-                fig_pie.update_traces(
-                    textinfo='percent',      # Hanya persentase yang di dalam
-                    textposition='inside',   # Paksa persentase masuk
-                    textfont_size=20,        # Ukuran persentase diperbesar (20)
-                    textfont_color='white',  # Warna angka putih agar kontras
-                    hoverinfo='label+value+percent' # Detail muncul saat kursor didekatkan
-                )
-
-                fig_pie.update_layout(
-                    height=450,
-                    showlegend=True,         # Label kategori tetap ada di Legenda (luar)
-                    legend=dict(
-                        orientation="h",     # Legenda dibuat horizontal di bawah
-                        yanchor="bottom",
-                        y=-0.2,
-                        xanchor="center",
-                        x=0.5,
-                        font=dict(size=14)
-                    ),
-                    margin=dict(t=0, b=100, l=0, r=0)
-                )
-                st.plotly_chart(fig_pie, use_container_width=True)
-            else:
-                st.info("No data for Obstacles")
-
-        with col2:
-            st.subheader("Aisle Category Demand")
-            # Mengambil data kategori Aisle
-            aisle_df = data[data['Category'] == 'Aisle Category']
+        if not obs_df.empty:
+            obs_counts = obs_df['Value'].value_counts().reset_index()
+            obs_counts.columns = ['Value', 'count']
             
-            if not aisle_df.empty:
-                # Menghitung frekuensi
-                aisle_counts = aisle_df['Value'].value_counts().reset_index()
-                aisle_counts.columns = ['Aisle', 'Count']
-                
-                # Membuat label gabungan: Nama Kategori + Jumlah (Value)
-                # Contoh: "Narrow Aisle <br> 5"
-                aisle_counts['Full_Label'] = aisle_counts['Aisle'] + "<br>" + aisle_counts['Count'].astype(str)
+            fig_pie = px.pie(
+                obs_counts, 
+                values='count', 
+                names='Value', 
+                hole=0.3,
+                color_discrete_sequence=px.colors.sequential.RdBu
+            )
+            
+            fig_pie.update_traces(
+                textinfo='percent',
+                textposition='inside',
+                textfont_size=20,
+                textfont_color='white'
+            )
 
-                # Membuat bar chart dengan warna biru solid agar konsisten
-                fig_aisle = px.bar(
-                    aisle_counts, 
-                    x='Aisle', 
-                    y='Count',
-                    text='Full_Label',
-                    color_discrete_sequence=['#0078D4'] # Biru Solid Traknus
-                )
+            fig_pie.update_layout(
+                height=450,
+                legend=dict(orientation="h", y=-0.1, x=0.5, xanchor="center", font=dict(size=14)),
+                margin=dict(t=20, b=100)
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            st.info("No data for Obstacles")
 
-                # Mengatur posisi label agar berada di DALAM batang
-                fig_aisle.update_traces(
-                    textposition='inside',
-                    insidetextanchor='middle',
-                    textfont=dict(size=14, color='white', family='Arial Black')
-                )
+        # --- Visualisasi 3: Aisle Category Demand (Full Width & Di Bawah) ---
+        st.divider()
+        st.subheader("Aisle Category Demand")
+        aisle_df = data[data['Category'] == 'Aisle Category']
+        
+        if not aisle_df.empty:
+            aisle_counts = aisle_df['Value'].value_counts().reset_index()
+            aisle_counts.columns = ['Aisle', 'Count']
+            
+            # Membuat label gabungan: Nama Kategori + Jumlah
+            aisle_counts['Full_Label'] = aisle_counts['Aisle'] + " (" + aisle_counts['Count'].astype(str) + ")"
 
-                fig_aisle.update_layout(
-                    xaxis_title="",
-                    yaxis_title="Jumlah Pencarian",
-                    xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
-                    font=dict(size=14),
-                    height=450,
-                    margin=dict(l=20, r=20, t=20, b=20)
-                )
-                
-                st.plotly_chart(fig_aisle, use_container_width=True)
-            else:
-                st.info("No data for Aisle Category")
+            fig_aisle = px.bar(
+                aisle_counts, 
+                x='Aisle', 
+                y='Count',
+                text='Full_Label', # Label lengkap muncul di batang
+                color_discrete_sequence=['#0078D4']
+            )
+
+            fig_aisle.update_traces(
+                textposition='inside',
+                insidetextanchor='middle',
+                textfont=dict(size=16, color='white', family='Arial Black')
+            )
+
+            fig_aisle.update_layout(
+                xaxis_title="Kategori Lorong",
+                yaxis_title="Jumlah Pencarian",
+                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
+                font=dict(size=14),
+                height=400, # Tinggi sedikit dikurangi agar tidak terlalu memanjang ke bawah
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
+            st.plotly_chart(fig_aisle, use_container_width=True)
+        else:
+            st.info("No data for Aisle Category")
 
         # --- Tabel Data Mentah ---
         with st.expander("View Data Details"):
