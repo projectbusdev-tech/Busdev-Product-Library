@@ -648,36 +648,39 @@ def filter_analytics_page():
             floor_counts = floor_data['Value'].value_counts().reset_index()
             floor_counts.columns = ['Floor Type', 'Count']
 
+            # 1. GABUNGKAN Label Kategori dan Angka agar bisa masuk ke dalam batang
+            # Contoh hasil: "Epoxy (2)"
+            floor_counts['Full_Label'] = floor_counts['Floor Type'] + "<br>" + floor_counts['Count'].astype(str)
+
+            # 2. Gunakan skala warna yang lebih gelap (seperti 'emrld' atau 'algae') 
+            # agar teks putih selalu terlihat jelas
             fig_floor = px.bar(
                 floor_counts, 
                 x='Floor Type', 
                 y='Count',
-                text='Count', 
+                text='Full_Label', # Gunakan label gabungan di sini
                 color='Count',
-                color_continuous_scale='Greens'
+                color_continuous_scale='emrld' # Skala warna lebih solid daripada 'Greens'
             )
 
-            # PERBAIKAN: Memastikan label di dalam dan kontras
             fig_floor.update_traces(
-                textposition='inside',      # Memaksa teks ke dalam batang
-                insidetextanchor='middle',  # Posisi di tengah batang
+                textposition='inside',      # Paksa masuk ke dalam batang
+                insidetextanchor='middle',  # Posisi di tengah
                 textfont=dict(
-                    size=18, 
-                    color='white',          # Warna default putih
+                    size=14, 
+                    color='white', 
                     family='Arial Black'
-                ),
-                # Penambahan: Jika batang terlalu terang, Plotly akan mencoba menjaga keterbacaan
-                insidetextfont=dict(color='white'), 
-                constraintext='inside'      # Memastikan teks tidak keluar batas batang
+                )
             )
 
             fig_floor.update_layout(
-                xaxis_title="Tipe Lantai",
+                xaxis_title="",             # Hilangkan judul sumbu X karena label sudah di dalam
                 yaxis_title="Jumlah Pencarian",
-                font=dict(size=16),
+                # Sembunyikan label sumbu X (All, Epoxy, dll) agar tidak dobel
+                xaxis=dict(showticklabels=False), 
+                font=dict(size=14),
                 height=500,
                 margin=dict(l=20, r=20, t=20, b=20),
-                # Opsional: Hilangkan color bar di samping jika dirasa memenuhi layar
                 coloraxis_showscale=False 
             )
 
@@ -685,6 +688,7 @@ def filter_analytics_page():
         else:
             st.info("No Floor Type data.")
 
+        
         # --- Visualisasi 2: Obstacle Frequency & Aisle Category ---
         col1, col2 = st.columns(2)
         
