@@ -728,10 +728,44 @@ def filter_analytics_page():
 
         with col2:
             st.subheader("Aisle Category Demand")
+            # Mengambil data kategori Aisle
             aisle_df = data[data['Category'] == 'Aisle Category']
+            
             if not aisle_df.empty:
+                # Menghitung frekuensi
                 aisle_counts = aisle_df['Value'].value_counts().reset_index()
-                st.bar_chart(data=aisle_counts, x='Value', y='count', color="#0078D4")
+                aisle_counts.columns = ['Aisle', 'Count']
+                
+                # Membuat label gabungan: Nama Kategori + Jumlah (Value)
+                # Contoh: "Narrow Aisle <br> 5"
+                aisle_counts['Full_Label'] = aisle_counts['Aisle'] + "<br>" + aisle_counts['Count'].astype(str)
+
+                # Membuat bar chart dengan warna biru solid agar konsisten
+                fig_aisle = px.bar(
+                    aisle_counts, 
+                    x='Aisle', 
+                    y='Count',
+                    text='Full_Label',
+                    color_discrete_sequence=['#0078D4'] # Biru Solid Traknus
+                )
+
+                # Mengatur posisi label agar berada di DALAM batang
+                fig_aisle.update_traces(
+                    textposition='inside',
+                    insidetextanchor='middle',
+                    textfont=dict(size=14, color='white', family='Arial Black')
+                )
+
+                fig_aisle.update_layout(
+                    xaxis_title="",
+                    yaxis_title="Jumlah Pencarian",
+                    xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
+                    font=dict(size=14),
+                    height=450,
+                    margin=dict(l=20, r=20, t=20, b=20)
+                )
+                
+                st.plotly_chart(fig_aisle, use_container_width=True)
             else:
                 st.info("No data for Aisle Category")
 
