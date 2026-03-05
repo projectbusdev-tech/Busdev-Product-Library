@@ -660,7 +660,7 @@ def filter_analytics_page():
                 y='Count',
                 text='Full_Label', # Gunakan label gabungan di sini
                 color='Count',
-                color_continuous_scale='emrld' # Skala warna lebih solid daripada 'Greens'
+                color_continuous_scale='algae' # Skala warna lebih solid daripada 'Greens'
             )
 
             fig_floor.update_traces(
