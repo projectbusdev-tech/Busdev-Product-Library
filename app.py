@@ -645,39 +645,40 @@ def filter_analytics_page():
         floor_data = data[data['Category'] == 'Floor Type']
 
         if not floor_data.empty:
-            # Menghitung jumlah kemunculan tiap tipe lantai
             floor_counts = floor_data['Value'].value_counts().reset_index()
-            floor_counts.columns = ['Floor Type', 'Count'] # Memberi nama kolom yang jelas
+            floor_counts.columns = ['Floor Type', 'Count']
 
-            # Menggunakan Plotly untuk kontrol tampilan yang lebih detail
             fig_floor = px.bar(
                 floor_counts, 
                 x='Floor Type', 
                 y='Count',
-                text='Count', # Mengambil data angka untuk ditampilkan
+                text='Count', 
                 color='Count',
                 color_continuous_scale='Greens'
             )
 
-            # PERBAIKAN: Meletakkan label di DALAM batang dengan font yang lebih jelas
+            # PERBAIKAN: Memastikan label di dalam dan kontras
             fig_floor.update_traces(
-                textposition='inside', # Label dipindah ke dalam
-                insidetextanchor='middle', # Posisi angka di tengah-tengah batang
+                textposition='inside',      # Memaksa teks ke dalam batang
+                insidetextanchor='middle',  # Posisi di tengah batang
                 textfont=dict(
                     size=18, 
-                    color='white', 
-                    family='Arial Black' # Font tebal agar mudah dibaca di atas warna hijau
-                )
+                    color='white',          # Warna default putih
+                    family='Arial Black'
+                ),
+                # Penambahan: Jika batang terlalu terang, Plotly akan mencoba menjaga keterbacaan
+                insidetextfont=dict(color='white'), 
+                constraintext='inside'      # Memastikan teks tidak keluar batas batang
             )
 
             fig_floor.update_layout(
                 xaxis_title="Tipe Lantai",
                 yaxis_title="Jumlah Pencarian",
-                font=dict(size=16), # Ukuran font label sumbu X dan Y
-                uniformtext_minsize=14,
-                uniformtext_mode='hide',
+                font=dict(size=16),
                 height=500,
-                margin=dict(l=20, r=20, t=20, b=20)
+                margin=dict(l=20, r=20, t=20, b=20),
+                # Opsional: Hilangkan color bar di samping jika dirasa memenuhi layar
+                coloraxis_showscale=False 
             )
 
             st.plotly_chart(fig_floor, use_container_width=True)
