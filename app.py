@@ -700,19 +700,28 @@ def filter_analytics_page():
                                  hole=0.3, color_discrete_sequence=px.colors.sequential.RdBu)
                 fig_pie.update_layout(height=400)
                 
-                # PERBAIKAN: Memperbesar label persentase dan memastikannya di dalam
+                # PERBAIKAN: Persentase di DALAM, Label di LUAR
                 fig_pie.update_traces(
-                    textinfo='percent+label', # Menampilkan persentase dan nama kategori
-                    textfont_size=18,         # Memperbesar ukuran font (Default biasanya 12)
-                    insidetextorientation='horizontal' # Memastikan tulisan tetap mendatar
+                    textinfo='percent',      # Hanya persentase yang di dalam
+                    textposition='inside',   # Paksa persentase masuk
+                    textfont_size=20,        # Ukuran persentase diperbesar (20)
+                    textfont_color='white',  # Warna angka putih agar kontras
+                    hoverinfo='label+value+percent' # Detail muncul saat kursor didekatkan
                 )
 
                 fig_pie.update_layout(
                     height=450,
-                    showlegend=True,
-                    legend=dict(font=dict(size=14)) # Memperbesar font legenda juga
+                    showlegend=True,         # Label kategori tetap ada di Legenda (luar)
+                    legend=dict(
+                        orientation="h",     # Legenda dibuat horizontal di bawah
+                        yanchor="bottom",
+                        y=-0.2,
+                        xanchor="center",
+                        x=0.5,
+                        font=dict(size=14)
+                    ),
+                    margin=dict(t=0, b=100, l=0, r=0)
                 )
-
                 st.plotly_chart(fig_pie, use_container_width=True)
             else:
                 st.info("No data for Obstacles")
