@@ -699,6 +699,20 @@ def filter_analytics_page():
                 fig_pie = px.pie(obs_counts, values='count', names='Value', 
                                  hole=0.3, color_discrete_sequence=px.colors.sequential.RdBu)
                 fig_pie.update_layout(height=400)
+                
+                # PERBAIKAN: Memperbesar label persentase dan memastikannya di dalam
+                fig_pie.update_traces(
+                    textinfo='percent+label', # Menampilkan persentase dan nama kategori
+                    textfont_size=18,         # Memperbesar ukuran font (Default biasanya 12)
+                    insidetextorientation='horizontal' # Memastikan tulisan tetap mendatar
+                )
+
+                fig_pie.update_layout(
+                    height=450,
+                    showlegend=True,
+                    legend=dict(font=dict(size=14)) # Memperbesar font legenda juga
+                )
+
                 st.plotly_chart(fig_pie, use_container_width=True)
             else:
                 st.info("No data for Obstacles")
