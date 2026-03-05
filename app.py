@@ -641,48 +641,48 @@ def filter_analytics_page():
             return
           
         # --- Visualisasi 1: Top Floor Type yang Dicari ---
-st.subheader("Most Searched Floor Types")
-floor_data = data[data['Category'] == 'Floor Type']
+        st.subheader("Most Searched Floor Types")
+        floor_data = data[data['Category'] == 'Floor Type']
 
-if not floor_data.empty:
-    # Menghitung jumlah kemunculan tiap tipe lantai
-    floor_counts = floor_data['Value'].value_counts().reset_index()
-    floor_counts.columns = ['Floor Type', 'Count'] # Memberi nama kolom yang jelas
+        if not floor_data.empty:
+            # Menghitung jumlah kemunculan tiap tipe lantai
+            floor_counts = floor_data['Value'].value_counts().reset_index()
+            floor_counts.columns = ['Floor Type', 'Count'] # Memberi nama kolom yang jelas
 
-    # Menggunakan Plotly untuk kontrol tampilan yang lebih detail
-    fig_floor = px.bar(
-        floor_counts, 
-        x='Floor Type', 
-        y='Count',
-        text='Count', # Mengambil data angka untuk ditampilkan
-        color='Count',
-        color_continuous_scale='Greens'
-    )
+            # Menggunakan Plotly untuk kontrol tampilan yang lebih detail
+            fig_floor = px.bar(
+                floor_counts, 
+                x='Floor Type', 
+                y='Count',
+                text='Count', # Mengambil data angka untuk ditampilkan
+                color='Count',
+                color_continuous_scale='Greens'
+            )
 
-    # PERBAIKAN: Meletakkan label di DALAM batang dengan font yang lebih jelas
-    fig_floor.update_traces(
-        textposition='inside', # Label dipindah ke dalam
-        insidetextanchor='middle', # Posisi angka di tengah-tengah batang
-        textfont=dict(
-            size=18, 
-            color='white', 
-            family='Arial Black' # Font tebal agar mudah dibaca di atas warna hijau
-        )
-    )
+            # PERBAIKAN: Meletakkan label di DALAM batang dengan font yang lebih jelas
+            fig_floor.update_traces(
+                textposition='inside', # Label dipindah ke dalam
+                insidetextanchor='middle', # Posisi angka di tengah-tengah batang
+                textfont=dict(
+                    size=18, 
+                    color='white', 
+                    family='Arial Black' # Font tebal agar mudah dibaca di atas warna hijau
+                )
+            )
 
-    fig_floor.update_layout(
-        xaxis_title="Tipe Lantai",
-        yaxis_title="Jumlah Pencarian",
-        font=dict(size=16), # Ukuran font label sumbu X dan Y
-        uniformtext_minsize=14,
-        uniformtext_mode='hide',
-        height=500,
-        margin=dict(l=20, r=20, t=20, b=20)
-    )
+            fig_floor.update_layout(
+                xaxis_title="Tipe Lantai",
+                yaxis_title="Jumlah Pencarian",
+                font=dict(size=16), # Ukuran font label sumbu X dan Y
+                uniformtext_minsize=14,
+                uniformtext_mode='hide',
+                height=500,
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
 
-    st.plotly_chart(fig_floor, use_container_width=True)
-else:
-    st.info("No Floor Type data.")
+            st.plotly_chart(fig_floor, use_container_width=True)
+        else:
+            st.info("No Floor Type data.")
 
         # --- Visualisasi 2: Obstacle Frequency & Aisle Category ---
         col1, col2 = st.columns(2)
