@@ -652,15 +652,13 @@ def filter_analytics_page():
             # Contoh hasil: "Epoxy (2)"
             floor_counts['Full_Label'] = floor_counts['Floor Type'] + "<br>" + floor_counts['Count'].astype(str)
 
-            # 2. Gunakan skala warna yang lebih gelap (seperti 'emrld' atau 'algae') 
-            # agar teks putih selalu terlihat jelas
+           
             fig_floor = px.bar(
                 floor_counts, 
                 x='Floor Type', 
                 y='Count',
-                text='Full_Label', # Gunakan label gabungan di sini
-                color='Count',
-                color_continuous_scale='algae' # Skala warna lebih solid daripada 'Greens'
+                text='Full_Label', 
+                color_discrete_sequence=['#004d1a'] # Warna Hijau Tua Solid
             )
 
             fig_floor.update_traces(
