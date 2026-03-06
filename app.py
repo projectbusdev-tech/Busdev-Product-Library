@@ -636,6 +636,12 @@ def filter_analytics_page():
         # Gunakan fungsi load_gsheet_data yang sudah ada
         data = load_gsheet_data("FilterLogs")
 
+        # --- LOGIKA FILTER BERDASARKAN ROLE PENGLIHAT ---
+        if st.session_state.role != "Admin":
+            # Jika yang melihat adalah User biasa, hapus semua jejak username 'admin'
+            data = data[data['Username'].str.lower() != 'admin']
+        # Jika yang melihat adalah Admin, baris di atas dilewati (data tampil semua)
+
         if data.empty:
             st.warning("No Data.")
             return
