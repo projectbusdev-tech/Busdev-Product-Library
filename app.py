@@ -728,8 +728,45 @@ def filter_analytics_page():
         else:
             st.info("No Floor Type data.")
 
+        # --- Visualisasi 3: Product Type Preference  ---
+        st.divider()
+        st.subheader("Product Type Preference")
+        pt_df = data[data['Category'] == 'Product Type']
         
-        # --- Visualisasi 3: Obstacle Preference (Full Width) ---
+        if not pt_df.empty:
+            pt_counts = pt_df['Value'].value_counts().reset_index()
+            pt_counts.columns = ['Product Type', 'Count']
+            
+            # Label gabungan untuk tampilan di dalam batang
+            pt_counts['Full_Label'] = pt_counts['Product Type'] + "<br>" + pt_counts['Count'].astype(str)
+
+            fig_pt = px.bar(
+                pt_counts, 
+                x='Product Type', 
+                y='Count',
+                text='Full_Label',
+                color_discrete_sequence=['#16A085'] # Warna Teal/Emerald yang profesional
+            )
+
+            fig_pt.update_traces(
+                textposition='inside',
+                insidetextanchor='middle',
+                textfont=dict(size=16, color='white', family='Arial Black')
+            )
+
+            fig_pt.update_layout(
+                xaxis_title="",
+                yaxis_title="Jumlah Pencarian",
+                xaxis=dict(showticklabels=False), # Label sudah ada di dalam batang
+                height=450,
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
+            st.plotly_chart(fig_pt, use_container_width=True)
+        else:
+            st.info("Belum ada data untuk Product Type")
+
+        
+        # --- Visualisasi 4: Obstacle Preference (Full Width) ---
         st.divider() # Garis pemisah agar rapi
         st.subheader("Obstacle Preference")
         obs_df = data[data['Category'] == 'Obstacle']
@@ -762,7 +799,7 @@ def filter_analytics_page():
         else:
             st.info("No data for Obstacles")
 
-        # --- Visualisasi 3: Waste Type Preference (TAMBAHAN BARU - Full Width) ---
+        # --- Visualisasi 5: Waste Type Preference (TAMBAHAN BARU - Full Width) ---
         st.divider()
         st.subheader("Waste Type Preference")
         waste_df = data[data['Category'] == 'Waste Type']
@@ -799,7 +836,7 @@ def filter_analytics_page():
         else:
             st.info("Belum ada data untuk Waste Type")
 
-        # --- Visualisasi 4: Aisle Category Demand (Full Width & Di Bawah) ---
+        # --- Visualisasi 6: Aisle Category Demand (Full Width & Di Bawah) ---
         st.divider()
         st.subheader("Aisle Category Demand")
         aisle_df = data[data['Category'] == 'Aisle Category']
