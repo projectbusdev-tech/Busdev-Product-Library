@@ -533,7 +533,9 @@ def handle_share_logging(username, brand, model, record_type):
 def show_detail(row, full_df):
     brand = row['Brand'] if not pd.isna(row['Brand']) else "-"
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
-    aisle_w = row.get('Aisle Width (cm)', '-') 
+    aisle_w = row.get('Aisle Width (cm)', '-')
+    aisle_cat = clean_list_string(row.get('Aisle Category'))
+    environment = clean_list_string(row.get('Environment'))
     slope_val = row.get('Max_Slope', '-') 
     max_area = row.get('Targeted Cleaning_Area', '-')
     floor_type = clean_list_string(row.get('Floor_Type_List'))
@@ -558,10 +560,11 @@ def show_detail(row, full_df):
     with col1:
         st.subheader("General Specifications")
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
-        st.write(f"**Aisle Width:** :orange[**{aisle_w} cm**]") 
-        st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
+        st.write(f"**Environment:** {row.get('environment', '-')}")
+        st.write(f"**Floor Type:** {floor_type}") 
         st.write(f"**Max Target Cleaning Area:** :green[**{max_area} m²/5h**]")
-        st.write(f"**Floor Type:** {floor_type}")
+        st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
+        st.write(f"**Aisle Category:** {row.get('aisle_cat', '-')}")
         st.write(f"**Obstacle:** {obstacles}")
         st.write(f"**Waste Type:** {waste_type}")
         
@@ -569,6 +572,7 @@ def show_detail(row, full_df):
         st.subheader("Dimensions & Weight")
         st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg")
         st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
+        st.write(f"**Aisle Width:** :orange[**{aisle_w} cm**]")
 
     st.markdown("---")
     
