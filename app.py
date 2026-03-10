@@ -147,28 +147,20 @@ def log_filter_to_gsheet(username, filters):
         st.error(f"Gagal mencatat log filter: {e}")
 
 def clear_gsheet_content(sheet_name):
-    """
-    Menghapus semua data di worksheet tertentu, 
-    tetapi tetap menyisakan baris pertama (Header).
-    """
+    """Menghapus data di worksheet dengan menyisakan header saja."""
     try:
-        # 1. Buka worksheet berdasarkan nama
-        sheet = client.open("UserDB_PdLibrary").worksheet(sheet_name)
-        
-        # 2. Ambil semua data untuk menghitung jumlah baris yang ada
-        all_values = sheet.get_all_values()
-        
-        if len(all_values) > 1:
-            # Hapus mulai dari baris ke-2 sampai baris terakhir
-            # (Baris 1 di GSheet adalah Header)
-            sheet.delete_rows(2, len(all_values))
-            return True
+        # Buat DataFrame kosong dengan kolom yang sesuai
+        if sheet_name == "LoginHistory":
+            empty_df = pd.DataFrame(columns=["Username", "Role", "Timestamp", "Status"])
         else:
-            # Tidak ada data selain header
+            # Sesuaikan untuk sheet lain jika perlu
             return False
-            
+
+        # Update sheet tersebut dengan DF kosong (hanya header)
+        conn.update(worksheet=sheet_name, data=empty_df)
+        return True
     except Exception as e:
-        st.error(f"Gagal menghapus data di GSheet: {e}")
+        st.error(f"Gagal menghapus data: {e}")
         return False
 
 
@@ -361,15 +353,30 @@ def show_product_analytics_page():
 # --- HISTORY LOGIC ---
 def log_login(username, role, status="Success"):
     try:
-        # Semua baris di bawah ini harus menjorok ke dalam (indentasi)
+        # 1. Ambil data lama dari sheet LoginHistory
+        history_df = load_gsheet_data("LoginHistory")
+        
+        # 2. Ambil waktu sekarang (WIB)
         wib_now = datetime.now() + timedelta(hours=7) 
         now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
         
-        # URUTAN: [Username, Role, Timestamp, Status]
-        new_entry = [[username, role, now_str, status]]
+        # 3. Buat baris baru dalam bentuk DataFrame
+        # Sesuaikan urutan kolom: Username, Role, Timestamp, Status
+        new_entry = pd.DataFrame([[
+            username, 
+            role, 
+            now_str, 
+            status
+        ]], columns=["Username", "Role", "Timestamp", "Status"])
         
-        # Mengirim data ke Google Sheets
-        append_gsheet_data("LoginHistory", new_entry)
+        # 4. Gabungkan data lama dan baru
+        if not history_df.empty:
+            updated_df = pd.concat([history_df, new_entry], ignore_index=True)
+        else:
+            updated_df = new_entry
+            
+        # 5. Update ke Google Sheets
+        conn.update(worksheet="LoginHistory", data=updated_df)
         
     except Exception as e:
         st.error(f"Gagal mencatat log login ke GSheet: {e}")
