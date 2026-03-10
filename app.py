@@ -227,7 +227,7 @@ def show_product_analytics_page():
         
     with c_f2:
         # 2. Filter Jenis Aktivitas
-        activity_options = ["All Activities", "Download", "WhatsApp", "Email"]
+        activity_options = ["All Activities Per Brand & Model", "All Download Per Brand & Model", "All WhatsApp Share Per Brand & Model", "All Email Share Per Brand & Model"]
         selected_activity = st.selectbox("Jenis Aktivitas (untuk Grafik):", activity_options)
 
     # Logika Filter Tanggal
