@@ -227,7 +227,7 @@ def show_product_analytics_page():
         
     with c_f2:
         # 2. Filter Jenis Aktivitas
-        activity_options = ["All Activities Per Brand & Model", "All Download Per Brand & Model", "All WhatsApp Share Per Brand & Model", "All Email Share Per Brand & Model"]
+        activity_options = ["All Activities", "Download", "WhatsApp", "Email"]
         selected_activity = st.selectbox("Jenis Aktivitas (untuk Grafik):", activity_options)
 
     # Logika Filter Tanggal
@@ -243,9 +243,9 @@ def show_product_analytics_page():
         m1, m2, m3, m4, m5 = st.columns(5)
         
         # Hitung untuk Card khusus
-        total_dl = len(df_filtered[df_filtered['RecordType'] == 'All Download Per Brand & Model'])
-        total_wa = len(df_filtered[df_filtered['RecordType'] == 'All WhatsApp Share Per Brand & Model'])
-        total_em = len(df_filtered[df_filtered['RecordType'] == 'All Email Share Per Brand & Model'])
+        total_dl = len(df_filtered[df_filtered['RecordType'] == 'Download'])
+        total_wa = len(df_filtered[df_filtered['RecordType'] == 'WhatsApp'])
+        total_em = len(df_filtered[df_filtered['RecordType'] == 'Email'])
         
         # Hitung Top (berdasarkan kombinasi semua aktivitas di range tgl tersebut)
         top_brand_df = df_filtered['Brand'].str.upper().value_counts().reset_index()
@@ -267,7 +267,7 @@ def show_product_analytics_page():
         st.write(f"### 📈 Charts: {selected_activity}")
         
         # Filter data khusus untuk grafik
-        if selected_activity != "All Activities Per Brand & Model":
+        if selected_activity != "All Activities":
             df_chart = df_filtered[df_filtered['RecordType'] == selected_activity]
         else:
             df_chart = df_filtered
