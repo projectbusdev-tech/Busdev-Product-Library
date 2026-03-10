@@ -913,10 +913,38 @@ def filter_analytics_page():
             st.info("No data for Aisle Category")
 
         
-        # --- Tabel Data Mentah ---
-        with st.expander("View Data Details"):
-            st.dataframe(data.iloc[::-1], use_container_width=True)
+        # --- Tabel Data Mentah dengan Tombol Export ---
+        st.divider()
+        st.subheader("📋 Detail Data Logs")
+        
+        # Persiapkan data untuk display
+        df_display = data.iloc[::-1]
+        
+        with st.expander("View & Export Data Details"):
+            st.dataframe(df_display, use_container_width=True)
+            
+            # Tombol Export Berdampingan
+            col_ex1, col_ex2, _ = st.columns([1, 1, 3])
+            
+            with col_ex1:
+                # Export CSV
+                csv_data = df_display.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Export to CSV",
+                    data=csv_data,
+                    file_name='filter_logs.csv',
+                    mime='text/csv',
+                )
 
+            with col_ex2:
+                # Export Excel
+                excel_data = convert_df_to_excel(df_display)
+                st.download_button(
+                    label="📊 Export to Excel",
+                    data=excel_data,
+                    file_name='filter_logs.xlsx',
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                )
     except Exception as e:
         st.error(f"Failed to load Dashboard: {e}")
        
