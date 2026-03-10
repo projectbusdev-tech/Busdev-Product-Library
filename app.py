@@ -304,17 +304,60 @@ def show_product_analytics_page():
             c1, c2 = st.columns(2)
             color_map = {'GAUSIUM': '#000000', 'FIORENTINI': '#0078D4'}
 
+            plotly_config = {
+                'displaylogo': False,
+                'modeBarButtonsToRemove': [
+                    'zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 
+                    'zoomOut2d', 'autoScale2d', 'resetScale2d', 'hoverClosestCartesian', 
+                    'hoverCompareCartesian', 'toggleSpikelines'
+                ],
+                'displayModeBar': True
+            }
+
             with c1:
-                fig_b = px.bar(chart_brand, x='Brand', y='count', color='Brand', color_discrete_map=color_map, text='Brand')
-                fig_b.update_layout(height=600, showlegend=False, yaxis_title="Total Actions")
-                fig_b.update_traces(textposition='inside', texttemplate='%{text}<br>%{y}', textfont=dict(size=16, color='white', family='Arial Black'))
-                st.plotly_chart(fig_b, use_container_width=True)
+                # Mengambil nilai max untuk padding atas agar tidak terpotong
+                max_b = chart_brand['count'].max()
+    
+                fig_b = px.bar(chart_brand, x='Brand', y='count', color='Brand', color_discrete_map=color_map, text='count')
+    
+                fig_b.update_layout(
+                    height=600, 
+                    showlegend=False, 
+                    yaxis_title="Total Actions",
+                    yaxis=dict(range=[0, max_b * 1.2], tickfont=dict(size=14)), # Tambah ruang atas
+                    xaxis=dict(tickfont=dict(size=18)), # Perbesar nama Brand
+                    margin=dict(t=80) # Ruang ekstra untuk toolbar
+                )
+    
+                fig_b.update_traces(
+                    textposition='outside', # Pindahkan ke luar
+                    textfont=dict(size=22, family='Arial Black'), # Perbesar angka
+                    cliponaxis=False
+                )
+    
+                st.plotly_chart(fig_b, use_container_width=True, config=plotly_config)
 
             with c2:
-                fig_m = px.bar(chart_model.head(10), x='count', y='Model', orientation='h', text='Model', color_discrete_sequence=['#2ECC71'])
-                fig_m.update_layout(height=600, yaxis=dict(showticklabels=False))
-                fig_m.update_traces(textposition='inside', texttemplate=' %{text} (%{x})', textfont=dict(size=16, color='white', family='Arial Black'))
-                st.plotly_chart(fig_m, use_container_width=True)
+                # Untuk chart horizontal, kita gunakan max_x untuk padding kanan
+                max_m = chart_model.head(10)['count'].max()
+    
+                fig_m = px.bar(chart_model.head(10), x='count', y='Model', orientation='h', text='count', color_discrete_sequence=['#2ECC71'])
+    
+                fig_m.update_layout(
+                    height=600, 
+                    yaxis=dict(showticklabels=True, tickfont=dict(size=16)), # Tampilkan kembali nama Model di kiri
+                    xaxis=dict(range=[0, max_m * 1.3], tickfont=dict(size=14)), # Tambah ruang kanan
+                    xaxis_title="Total Actions",
+                    margin=dict(t=80)
+                )
+    
+                fig_m.update_traces(
+                    textposition='outside', # Pindahkan ke luar (samping batang)
+                    textfont=dict(size=20, family='Arial Black'),
+                    cliponaxis=False
+                )
+    
+                st.plotly_chart(fig_m, use_container_width=True, config=plotly_config)
         else:
             st.warning(f"Tidak ada data untuk kategori {selected_activity}")
 
