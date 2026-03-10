@@ -748,89 +748,67 @@ def filter_analytics_page():
             st.warning("No Data.")
             return
 
-        # --- Visualisasi 1: Environment Preference (TAMBAHAN BARU - Full Width) ---
+       # --- Visualisasi 1: Environment Preference ---
         st.divider()
         st.subheader("Environment Preference")
         env_df = data[data['Category'] == 'Environment']
         if not env_df.empty:
             env_counts = env_df['Value'].value_counts().reset_index()
             env_counts.columns = ['Environment', 'Count']
-            # Gabungkan Nama Lingkungan + Angka
-            env_counts['Full_Label'] = env_counts['Environment'] + "<br>" + env_counts['Count'].astype(str)
 
             fig_env = px.bar(
                 env_counts, 
                 x='Environment', 
                 y='Count',
-                text='Full_Label',
-                color_discrete_sequence=['#E67E22'] # Warna Oranye Gelap agar kontras dengan teks putih
+                text='Count', # Hanya angka yang muncul di atas batang
+                color_discrete_sequence=['#E67E22']
             )
 
             fig_env.update_traces(
-                textposition='inside',
-                insidetextanchor='middle',
-                textfont=dict(size=16, color='white', family='Arial Black')
+                textposition='outside', # Label pindah ke luar
+                textfont=dict(size=14, family='Arial Black')
             )
 
             fig_env.update_layout(
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
+                xaxis=dict(showticklabels=True), # Tampilkan nama kategori di bawah
                 height=450,
                 margin=dict(l=20, r=20, t=20, b=20)
             )
             st.plotly_chart(fig_env, use_container_width=True)
-        else:
-            st.info("Belum ada data untuk Environment")
 
-        
-        # --- Visualisasi 2: Top Floor Type yang Dicari ---
+        # --- Visualisasi 2: Most Searched Floor Types ---
         st.subheader("Most Searched Floor Types")
         floor_data = data[data['Category'] == 'Floor Type']
 
         if not floor_data.empty:
             floor_counts = floor_data['Value'].value_counts().reset_index()
             floor_counts.columns = ['Floor Type', 'Count']
-
-            # 1. GABUNGKAN Label Kategori dan Angka agar bisa masuk ke dalam batang
-            # Contoh hasil: "Epoxy (2)"
-            floor_counts['Full_Label'] = floor_counts['Floor Type'] + "<br>" + floor_counts['Count'].astype(str)
-
            
             fig_floor = px.bar(
                 floor_counts, 
                 x='Floor Type', 
                 y='Count',
-                text='Full_Label', 
-                color_discrete_sequence=['#004d1a'] # Warna Hijau Tua Solid
+                text='Count',
+                color_discrete_sequence=['#004d1a']
             )
 
             fig_floor.update_traces(
-                textposition='inside',      # Paksa masuk ke dalam batang
-                insidetextanchor='middle',  # Posisi di tengah
-                textfont=dict(
-                    size=14, 
-                    color='white', 
-                    family='Arial Black'
-                )
+                textposition='outside',
+                textfont=dict(size=14, family='Arial Black')
             )
 
             fig_floor.update_layout(
-                xaxis_title="",             # Hilangkan judul sumbu X karena label sudah di dalam
+                xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
-                # Sembunyikan label sumbu X (All, Epoxy, dll) agar tidak dobel
-                xaxis=dict(showticklabels=False), 
-                font=dict(size=14),
+                xaxis=dict(showticklabels=True), 
                 height=500,
-                margin=dict(l=20, r=20, t=20, b=20),
-                coloraxis_showscale=False 
+                margin=dict(l=20, r=20, t=50, b=20)
             )
-
             st.plotly_chart(fig_floor, use_container_width=True)
-        else:
-            st.info("No Floor Type data.")
 
-        # --- Visualisasi 3: Product Type Preference  ---
+        # --- Visualisasi 3: Product Type Preference ---
         st.divider()
         st.subheader("Product Type Preference")
         pt_df = data[data['Category'] == 'Product Type']
@@ -839,36 +817,29 @@ def filter_analytics_page():
             pt_counts = pt_df['Value'].value_counts().reset_index()
             pt_counts.columns = ['Product Type', 'Count']
             
-            # Label gabungan untuk tampilan di dalam batang
-            pt_counts['Full_Label'] = pt_counts['Product Type'] + "<br>" + pt_counts['Count'].astype(str)
-
             fig_pt = px.bar(
                 pt_counts, 
                 x='Product Type', 
                 y='Count',
-                text='Full_Label',
-                color_discrete_sequence=['#16A085'] # Warna Teal/Emerald yang profesional
+                text='Count',
+                color_discrete_sequence=['#16A085']
             )
 
             fig_pt.update_traces(
-                textposition='inside',
-                insidetextanchor='middle',
-                textfont=dict(size=16, color='white', family='Arial Black')
+                textposition='outside',
+                textfont=dict(size=14, family='Arial Black')
             )
 
             fig_pt.update_layout(
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=False), # Label sudah ada di dalam batang
+                xaxis=dict(showticklabels=True),
                 height=450,
-                margin=dict(l=20, r=20, t=20, b=20)
+                margin=dict(l=20, r=20, t=50, b=20)
             )
             st.plotly_chart(fig_pt, use_container_width=True)
-        else:
-            st.info("Belum ada data untuk Product Type")
 
-        
-        # --- Visualisasi 4: Obstacle Preference (Full Width) ---
+        # --- Visualisasi 4: Obstacle Preference ---
         st.divider() 
         st.subheader("Obstacle Preference")
         obs_df = data[data['Category'] == 'Obstacle']
@@ -877,38 +848,29 @@ def filter_analytics_page():
             obs_counts = obs_df['Value'].value_counts().reset_index()
             obs_counts.columns = ['Obstacle', 'Count']
     
-            # Gabungkan Label Kategori + Angka untuk teks di dalam bar
-            obs_counts['Full_Label'] = obs_counts['Obstacle'] + "<br>" + obs_counts['Count'].astype(str)
-    
-            # Membuat Bar Chart
             fig_obs = px.bar(
                 obs_counts, 
                 x='Obstacle', 
                 y='Count',
-                text='Full_Label',
-                color_discrete_sequence=['#34495E'] # Warna Midnight Blue agar beda dengan chart lain
+                text='Count',
+                color_discrete_sequence=['#34495E']
             )
     
-            # Styling agar teks berada di tengah batang dan berwarna putih
             fig_obs.update_traces(
-                textposition='inside',
-                insidetextanchor='middle',
-                textfont=dict(size=16, color='white', family='Arial Black')
+                textposition='outside',
+                textfont=dict(size=14, family='Arial Black')
             )
 
             fig_obs.update_layout(
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam batang
+                xaxis=dict(showticklabels=True),
                 height=450,
-                margin=dict(l=20, r=20, t=20, b=20)
+                margin=dict(l=20, r=20, t=50, b=20)
             )
-    
             st.plotly_chart(fig_obs, use_container_width=True)
-        else:
-            st.info("No data for Obstacles")
     
-        # --- Visualisasi 5: Waste Type Preference (TAMBAHAN BARU - Full Width) ---
+        # --- Visualisasi 5: Waste Type Preference ---
         st.divider()
         st.subheader("Waste Type Preference")
         waste_df = data[data['Category'] == 'Waste Type']
@@ -916,36 +878,30 @@ def filter_analytics_page():
         if not waste_df.empty:
             waste_counts = waste_df['Value'].value_counts().reset_index()
             waste_counts.columns = ['Waste Type', 'Count']
-            
-            # Membuat label gabungan: Jenis Sampah + Angka
-            waste_counts['Full_Label'] = waste_counts['Waste Type'] + "<br>" + waste_counts['Count'].astype(str)
 
             fig_waste = px.bar(
                 waste_counts, 
                 x='Waste Type', 
                 y='Count',
-                text='Full_Label',
-                color_discrete_sequence=['#8E44AD'] # Warna Ungu Solid yang elegan dan kontras
+                text='Count',
+                color_discrete_sequence=['#8E44AD']
             )
 
             fig_waste.update_traces(
-                textposition='inside',
-                insidetextanchor='middle',
-                textfont=dict(size=16, color='white', family='Arial Black')
+                textposition='outside',
+                textfont=dict(size=14, family='Arial Black')
             )
 
             fig_waste.update_layout(
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
+                xaxis=dict(showticklabels=True),
                 height=450,
-                margin=dict(l=20, r=20, t=20, b=20)
+                margin=dict(l=20, r=20, t=50, b=20)
             )
             st.plotly_chart(fig_waste, use_container_width=True)
-        else:
-            st.info("Belum ada data untuk Waste Type")
 
-        # --- Visualisasi 6: Aisle Category Demand (Full Width & Di Bawah) ---
+        # --- Visualisasi 6: Aisle Category Demand ---
         st.divider()
         st.subheader("Aisle Category Demand")
         aisle_df = data[data['Category'] == 'Aisle Category']
@@ -953,36 +909,28 @@ def filter_analytics_page():
         if not aisle_df.empty:
             aisle_counts = aisle_df['Value'].value_counts().reset_index()
             aisle_counts.columns = ['Aisle', 'Count']
-            
-            # Membuat label gabungan: Nama Kategori + Jumlah
-            aisle_counts['Full_Label'] = aisle_counts['Aisle'] + " (" + aisle_counts['Count'].astype(str) + ")"
 
             fig_aisle = px.bar(
                 aisle_counts, 
                 x='Aisle', 
                 y='Count',
-                text='Full_Label', # Label lengkap muncul di batang
+                text='Count',
                 color_discrete_sequence=['#0078D4']
             )
 
             fig_aisle.update_traces(
-                textposition='inside',
-                insidetextanchor='middle',
-                textfont=dict(size=16, color='white', family='Arial Black')
+                textposition='outside',
+                textfont=dict(size=14, family='Arial Black')
             )
 
             fig_aisle.update_layout(
-                xaxis_title="Kategori Lorong",
+                xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
-                font=dict(size=14),
-                height=400, # Tinggi sedikit dikurangi agar tidak terlalu memanjang ke bawah
-                margin=dict(l=20, r=20, t=20, b=20)
+                xaxis=dict(showticklabels=True),
+                height=400,
+                margin=dict(l=20, r=20, t=50, b=20)
             )
             st.plotly_chart(fig_aisle, use_container_width=True)
-        else:
-            st.info("No data for Aisle Category")
-
         
         # --- Tabel Data Mentah dengan Tombol Export ---
         st.divider()
