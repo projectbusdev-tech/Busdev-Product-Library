@@ -267,7 +267,7 @@ def show_product_analytics_page():
         st.write(f"### 📈 Charts: {selected_activity}")
         
         # Filter data khusus untuk grafik
-        if selected_activity != "All Activities":
+        if selected_activity != "All Activities Per Brand & Model":
             df_chart = df_filtered[df_filtered['RecordType'] == selected_activity]
         else:
             df_chart = df_filtered
