@@ -3,8 +3,11 @@ import pandas as pd
 import os
 import re
 import urllib.parse
+import io
+import plotly.express as px
 from datetime import datetime, timedelta
 from streamlit_gsheets import GSheetsConnection
+
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Product Recommendation Library", layout="wide")
@@ -71,6 +74,78 @@ ADMIN_USERS = {
 
 HISTORY_FILE = "login_history.csv"
 
+# --- DATABASE FUNCTIONS ---
+def load_gsheet_data(worksheet_name):
+    """Membaca data dari tab tertentu di Google Sheets."""
+    try:
+        return conn.read(worksheet=worksheet_name, ttl=0)
+    except Exception:
+        return pd.DataFrame()
+
+def log_activity_to_gsheet(username, brand, model, record_type):
+    try:
+        # Nama worksheet tetap "DownloadHistory" agar tidak perlu ganti konfigurasi, 
+        # tapi isinya kita perluas.
+        history_df = load_gsheet_data("DownloadHistory")
+        wib_now = datetime.now() + timedelta(hours=7)
+        
+        new_entry = pd.DataFrame([[
+            wib_now.strftime("%Y-%m-%d %H:%M:%S"), 
+            username, 
+            brand, 
+            model, 
+            record_type
+        ]], columns=["Timestamp", "Username", "Brand", "Model", "RecordType"])
+        
+        updated_df = pd.concat([history_df, new_entry], ignore_index=True)
+        conn.update(worksheet="DownloadHistory", data=updated_df)
+    except Exception as e:
+        st.error(f"Gagal mencatat log {record_type}: {e}")
+
+def log_filter_to_gsheet(username, filters):
+    try:
+        # Mengambil data lama dari sheet FilterLogs
+        history_df = load_gsheet_data("FilterLogs")
+        wib_now = datetime.now() + timedelta(hours=7)
+        timestamp = wib_now.strftime("%Y-%m-%d %H:%M:%S")
+
+        base_data = {
+            "Timestamp": timestamp,
+            "Username": username,
+            "Brand_Filter": filters.get('brand', 'All'),
+            "Area_Filter": filters.get('area', 0),
+            "Slope_Filter": filters.get('slope', 0)
+        }
+
+        multi_map = {
+            'Product Type': filters.get('product_type', []),
+            'Environment': filters.get('environment', []),
+            'Floor Type': filters.get('floor_type', []),
+            'Aisle Category': filters.get('aisle_cat', []),
+            'Obstacle': filters.get('obstacle', []),
+            'Waste Type': filters.get('waste_type', [])
+        }
+
+        new_rows = []
+        for category, values in multi_map.items():
+            if isinstance(values, list) and len(values) > 0:
+                for val in values:
+                    row = base_data.copy()
+                    row["Category"] = category
+                    row["Value"] = val
+                    new_rows.append(row)
+            else:
+                row = base_data.copy()
+                row["Category"] = category
+                row["Value"] = "All"
+                new_rows.append(row)
+
+        new_entries_df = pd.DataFrame(new_rows)
+        updated_df = pd.concat([history_df, new_entries_df], ignore_index=True)
+        conn.update(worksheet="FilterLogs", data=updated_df)
+    except Exception as e:
+        st.error(f"Gagal mencatat log filter: {e}")
+
 def load_registered_users():
     """Membaca data user dari Google Sheets secara real-time."""
     try:
@@ -125,6 +200,103 @@ def signup_dialog():
                 st.balloons()
             else:
                 st.warning(msg)
+
+# --- PAGES ---
+
+def show_product_analytics_page():
+    st.title("📊 Product Analytics")
+    
+    history_df = load_gsheet_data("DownloadHistory")
+    if history_df.empty:
+        st.info("Belum ada data aktivitas.")
+        return
+
+    history_df['Timestamp'] = pd.to_datetime(history_df['Timestamp'])
+    
+    # Filter Role
+    if st.session_state.role != "Admin":
+        history_df = history_df[history_df['Username'] == st.session_state.username]
+
+    st.subheader("🔍 Filters")
+    c_f1, c_f2 = st.columns([2, 1])
+    
+    with c_f1:
+        # 1. Filter Tanggal
+        min_d, max_d = history_df['Timestamp'].min().date(), history_df['Timestamp'].max().date()
+        date_range = st.date_input("Rentang Tanggal:", value=(min_d, max_d))
+        
+    with c_f2:
+        # 2. Filter Jenis Aktivitas
+        activity_options = ["All Activities", "Download", "WhatsApp", "Email"]
+        selected_activity = st.selectbox("Jenis Aktivitas (untuk Grafik):", activity_options)
+
+    # Logika Filter Tanggal
+    if isinstance(date_range, tuple) and len(date_range) == 2:
+        mask = (history_df['Timestamp'].dt.date >= date_range[0]) & (history_df['Timestamp'].dt.date <= date_range[1])
+        df_filtered = history_df.loc[mask]
+    else:
+        df_filtered = history_df
+
+    if not df_filtered.empty:
+        # --- METRICS CARD (Kombinasi Count untuk Top Brand/Model) ---
+        st.divider()
+        m1, m2, m3, m4, m5 = st.columns(5)
+        
+        # Hitung untuk Card khusus
+        total_dl = len(df_filtered[df_filtered['RecordType'] == 'Download'])
+        total_wa = len(df_filtered[df_filtered['RecordType'] == 'WhatsApp'])
+        total_em = len(df_filtered[df_filtered['RecordType'] == 'Email'])
+        
+        # Hitung Top (berdasarkan kombinasi semua aktivitas di range tgl tersebut)
+        top_brand_df = df_filtered['Brand'].str.upper().value_counts().reset_index()
+        top_model_df = df_filtered['Model'].value_counts().reset_index()
+        
+        max_b = top_brand_df['count'].max() if not top_brand_df.empty else 0
+        b_name = " , ".join(top_brand_df[top_brand_df['count'] == max_b]['Brand'].tolist())
+        
+        max_m = top_model_df['count'].max() if not top_model_df.empty else 0
+        m_name = " , ".join(top_model_df[top_model_df['count'] == max_m]['Model'].tolist())
+
+        with m1: custom_metric("Total Downloads", f"{total_dl}x", "")
+        with m2: custom_metric("WhatsApp Share", f"{total_wa}x", "")
+        with m3: custom_metric("Email Share", f"{total_em}x", "")
+        with m4: custom_metric("Top Brand (All)", b_name, f"{max_b} acts")
+        with m5: custom_metric("Top Model (All)", m_name, f"{max_m} acts")
+
+        # --- VISUALISASI (Berdasarkan Filter Aktivitas) ---
+        st.write(f"### 📈 Charts: {selected_activity}")
+        
+        # Filter data khusus untuk grafik
+        if selected_activity != "All Activities":
+            df_chart = df_filtered[df_filtered['RecordType'] == selected_activity]
+        else:
+            df_chart = df_filtered
+
+        if not df_chart.empty:
+            chart_brand = df_chart['Brand'].str.upper().value_counts().reset_index()
+            chart_model = df_chart['Model'].value_counts().reset_index()
+            
+            c1, c2 = st.columns(2)
+            color_map = {'GAUSIUM': '#000000', 'FIORENTINI': '#0078D4'}
+
+            with c1:
+                fig_b = px.bar(chart_brand, x='Brand', y='count', color='Brand', color_discrete_map=color_map, text='Brand')
+                fig_b.update_layout(height=450, showlegend=False, yaxis_title="Total Actions")
+                fig_b.update_traces(textposition='inside', texttemplate='%{text}<br>%{y}', textfont=dict(size=16, color='white', family='Arial Black'))
+                st.plotly_chart(fig_b, use_container_width=True)
+
+            with c2:
+                fig_m = px.bar(chart_model.head(10), x='count', y='Model', orientation='h', text='Model', color_discrete_sequence=['#2ECC71'])
+                fig_m.update_layout(height=450, yaxis=dict(showticklabels=False))
+                fig_m.update_traces(textposition='inside', texttemplate=' %{text} (%{x})', textfont=dict(size=14, color='white', family='Arial Black'))
+                st.plotly_chart(fig_m, use_container_width=True)
+        else:
+            st.warning(f"Tidak ada data untuk kategori {selected_activity}")
+
+    # Tabel Detail
+    st.divider()
+    st.subheader("📄 Activity Logs")
+    st.dataframe(df_filtered[["Timestamp", "Username", "Brand", "Model", "RecordType"]].iloc[::-1], use_container_width=True)
 
 # --- HISTORY LOGIC ---
 def log_login(username, role):
@@ -210,6 +382,28 @@ def show_user_management_page():
         st.info("Belum ada user yang terdaftar di database.")
 
 # --- HELPER FUNCTIONS ---
+def custom_metric(label, value, sub_value):
+    st.markdown(f"""
+        <div style="
+            background-color: #f0f2f6;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 5px solid #2ECC71;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        ">
+            <p style="font-size: 14px; color: #5f6368; margin: 0;">{label}</p>
+            <p style="font-size: 18px; font-weight: bold; color: #262730; margin: 5px 0; line-height: 1.2; word-wrap: break-word;">
+                {value}
+            </p>
+            <p style="font-size: 14px; color: #2ecc71; margin: 0; font-weight: 500;">
+                ↑ {sub_value}
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
 def get_actual_col(df, target_name):
     norm_target = re.sub(r'[\s_]+', '', target_name.lower())
     for col in df.columns:
@@ -324,6 +518,16 @@ def show_comparison(base_row, full_df):
         st.session_state.show_compare = False
         st.rerun()
 
+def handle_share_logging(username, brand, model, record_type):
+    """Callback khusus untuk memastikan logging selesai sebelum aksi browser."""
+    try:
+        log_activity_to_gsheet(username, brand, model, record_type)
+        # Session state ini hanya untuk membantu UI jika diperlukan
+        st.session_state[f"logged_{record_type}"] = True
+    except Exception as e:
+        print(f"Error logging {record_type}: {e}")
+
+
 # --- PRODUCT DETAIL POPUP ---
 @st.dialog("Product Details", width="large")
 def show_detail(row, full_df):
@@ -331,7 +535,12 @@ def show_detail(row, full_df):
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
     aisle_w = row.get('Aisle Width (cm)', '-') 
     slope_val = row.get('Max_Slope', '-') 
+    max_area = row.get('Targeted Cleaning_Area', '-')
+    floor_type = clean_list_string(row.get('Floor_Type_List'))
+    obstacles = clean_list_string(row.get('Obstacle_List'))
+    waste_type = clean_list_string(row.get('Waste_Type_List'))
 
+    # Judul dan Tombol Compare
     col_title, col_comp = st.columns([3, 1])
     with col_title:
         st.header(f"{brand} - {model}")
@@ -339,7 +548,7 @@ def show_detail(row, full_df):
         if st.button("🔄 Compare Product", type="primary"):
             st.session_state.compare_base = row
             st.session_state.show_compare = True
-            st.session_state.show_dialog = False # Reset status dialog detail
+            st.session_state.show_dialog = False 
             st.rerun()
 
     st.image(get_image_path(row.get('General Specifications')), width=250) 
@@ -351,15 +560,15 @@ def show_detail(row, full_df):
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
         st.write(f"**Aisle Width:** :orange[**{aisle_w} cm**]") 
         st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
-        st.write(f"**Operation Mode:** {row.get('Operation_mode', '-')}")
-        st.write(f"**Environment:** {row.get('Environment', '-')}")
-        st.write(f"**Power Source:** {row.get('Power Source', '-')}")
+        st.write(f"**Max Target Cleaning Area:** :green[**{max_area} m²/5h**]")
+        st.write(f"**Floor Type:** {floor_type}")
+        st.write(f"**Obstacle:** {obstacles}")
+        st.write(f"**Waste Type:** {waste_type}")
         
     with col2:
         st.subheader("Dimensions & Weight")
         st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg")
         st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
-        st.write(f"**Total Dimensions:** {row.get('Measures_Total', '-')} mm")
 
     st.markdown("---")
     
@@ -369,27 +578,310 @@ def show_detail(row, full_df):
     
     if os.path.exists(found_path):
         col_dl, col_wa, col_email = st.columns(3) 
+        
+        # --- LOGIKA DOWNLOAD ---
         with col_dl:
             with open(found_path, "rb") as pdf_file:
-                st.download_button(label="📄 Download Brochure", data=pdf_file, file_name=f"{spec_name}.pdf", mime="application/pdf")
+                if st.download_button(
+                    label="📄 Download Brochure", 
+                    data=pdf_file, 
+                    file_name=f"{spec_name}.pdf", 
+                    mime="application/pdf",
+                    key=f"dl_{spec_name}"
+                ):
+                    # Menggunakan fungsi universal yang baru
+                    log_activity_to_gsheet(st.session_state.username, brand, model, "Download")
+                    st.success("Download tercatat!")
 
+        # Persiapan Link Share
         public_url = f"{GITHUB_RAW_BASE}static/brochures/{spec_name_encoded}.pdf" 
         subject_mail = f"Product Specs: {brand} - {model}"
         share_msg = f"Check out this product: {brand} - {model}\nBrochure: {public_url}"
         
         with col_wa:
-            st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button wa-button">📲 WhatsApp</a>', unsafe_allow_html=True)
+            wa_url = f"https://wa.me/?text={urllib.parse.quote(share_msg)}"
+            # Gunakan on_click untuk menjamin eksekusi log
+            if st.button("📲 WhatsApp", key=f"wa_btn_{row.name}", use_container_width=True,
+                         on_click=handle_share_logging, 
+                         args=(st.session_state.username, brand, model, "WhatsApp")):
+                
+                # Membuka link hanya SETELAH callback logging dijalankan
+                js_wa = f'window.open("{wa_url}", "_blank").focus();'
+                st.components.v1.html(f'<script>{js_wa}</script>', height=0)
+                st.toast("WhatsApp activity recorded!")
+
         with col_email:
-            st.markdown(f'<a href="mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}" target="_blank" class="custom-button email-button">📧 Email</a>', unsafe_allow_html=True)
+            email_url = f"mailto:?subject={urllib.parse.quote(subject_mail)}&body={urllib.parse.quote(share_msg)}"
+            if st.button("📧 Email", key=f"em_btn_{row.name}", use_container_width=True,
+                         on_click=handle_share_logging, 
+                         args=(st.session_state.username, brand, model, "Email")):
+                
+                js_em = f'window.location.href = "{email_url}";'
+                st.components.v1.html(f'<script>{js_em}</script>', height=0)
+                st.toast("Email activity recorded!")
+
     else:
         st.info("Digital brochure is not yet available.")
-
 
     st.markdown("---")
     if st.button("Tutup Detail"):
         st.session_state.show_dialog = False
         st.rerun()
 
+
+def filter_analytics_page():
+    st.title("📊 Filter Analytics")
+
+    try:
+        # Gunakan fungsi load_gsheet_data yang sudah ada
+        data = load_gsheet_data("FilterLogs")
+
+        # --- LOGIKA FILTER BERDASARKAN ROLE PENGLIHAT ---
+        if st.session_state.role != "Admin":
+            # Jika yang melihat adalah User biasa, hapus semua jejak username 'admin'
+            data = data[data['Username'].str.lower() != 'admin']
+        # Jika yang melihat adalah Admin, baris di atas dilewati (data tampil semua)
+
+        if data.empty:
+            st.warning("No Data.")
+            return
+
+        # --- Visualisasi 1: Environment Preference (TAMBAHAN BARU - Full Width) ---
+        st.divider()
+        st.subheader("Environment Preference")
+        env_df = data[data['Category'] == 'Environment']
+        if not env_df.empty:
+            env_counts = env_df['Value'].value_counts().reset_index()
+            env_counts.columns = ['Environment', 'Count']
+            # Gabungkan Nama Lingkungan + Angka
+            env_counts['Full_Label'] = env_counts['Environment'] + "<br>" + env_counts['Count'].astype(str)
+
+            fig_env = px.bar(
+                env_counts, 
+                x='Environment', 
+                y='Count',
+                text='Full_Label',
+                color_discrete_sequence=['#E67E22'] # Warna Oranye Gelap agar kontras dengan teks putih
+            )
+
+            fig_env.update_traces(
+                textposition='inside',
+                insidetextanchor='middle',
+                textfont=dict(size=16, color='white', family='Arial Black')
+            )
+
+            fig_env.update_layout(
+                xaxis_title="",
+                yaxis_title="Jumlah Pencarian",
+                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
+                height=450,
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
+            st.plotly_chart(fig_env, use_container_width=True)
+        else:
+            st.info("Belum ada data untuk Environment")
+
+        
+        # --- Visualisasi 2: Top Floor Type yang Dicari ---
+        st.subheader("Most Searched Floor Types")
+        floor_data = data[data['Category'] == 'Floor Type']
+
+        if not floor_data.empty:
+            floor_counts = floor_data['Value'].value_counts().reset_index()
+            floor_counts.columns = ['Floor Type', 'Count']
+
+            # 1. GABUNGKAN Label Kategori dan Angka agar bisa masuk ke dalam batang
+            # Contoh hasil: "Epoxy (2)"
+            floor_counts['Full_Label'] = floor_counts['Floor Type'] + "<br>" + floor_counts['Count'].astype(str)
+
+           
+            fig_floor = px.bar(
+                floor_counts, 
+                x='Floor Type', 
+                y='Count',
+                text='Full_Label', 
+                color_discrete_sequence=['#004d1a'] # Warna Hijau Tua Solid
+            )
+
+            fig_floor.update_traces(
+                textposition='inside',      # Paksa masuk ke dalam batang
+                insidetextanchor='middle',  # Posisi di tengah
+                textfont=dict(
+                    size=14, 
+                    color='white', 
+                    family='Arial Black'
+                )
+            )
+
+            fig_floor.update_layout(
+                xaxis_title="",             # Hilangkan judul sumbu X karena label sudah di dalam
+                yaxis_title="Jumlah Pencarian",
+                # Sembunyikan label sumbu X (All, Epoxy, dll) agar tidak dobel
+                xaxis=dict(showticklabels=False), 
+                font=dict(size=14),
+                height=500,
+                margin=dict(l=20, r=20, t=20, b=20),
+                coloraxis_showscale=False 
+            )
+
+            st.plotly_chart(fig_floor, use_container_width=True)
+        else:
+            st.info("No Floor Type data.")
+
+        # --- Visualisasi 3: Product Type Preference  ---
+        st.divider()
+        st.subheader("Product Type Preference")
+        pt_df = data[data['Category'] == 'Product Type']
+        
+        if not pt_df.empty:
+            pt_counts = pt_df['Value'].value_counts().reset_index()
+            pt_counts.columns = ['Product Type', 'Count']
+            
+            # Label gabungan untuk tampilan di dalam batang
+            pt_counts['Full_Label'] = pt_counts['Product Type'] + "<br>" + pt_counts['Count'].astype(str)
+
+            fig_pt = px.bar(
+                pt_counts, 
+                x='Product Type', 
+                y='Count',
+                text='Full_Label',
+                color_discrete_sequence=['#16A085'] # Warna Teal/Emerald yang profesional
+            )
+
+            fig_pt.update_traces(
+                textposition='inside',
+                insidetextanchor='middle',
+                textfont=dict(size=16, color='white', family='Arial Black')
+            )
+
+            fig_pt.update_layout(
+                xaxis_title="",
+                yaxis_title="Jumlah Pencarian",
+                xaxis=dict(showticklabels=False), # Label sudah ada di dalam batang
+                height=450,
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
+            st.plotly_chart(fig_pt, use_container_width=True)
+        else:
+            st.info("Belum ada data untuk Product Type")
+
+        
+        # --- Visualisasi 4: Obstacle Preference (Full Width) ---
+        st.divider() # Garis pemisah agar rapi
+        st.subheader("Obstacle Preference")
+        obs_df = data[data['Category'] == 'Obstacle']
+        
+        if not obs_df.empty:
+            obs_counts = obs_df['Value'].value_counts().reset_index()
+            obs_counts.columns = ['Value', 'count']
+            
+            fig_pie = px.pie(
+                obs_counts, 
+                values='count', 
+                names='Value', 
+                hole=0.3,
+                color_discrete_sequence=px.colors.sequential.RdBu
+            )
+            
+            fig_pie.update_traces(
+                textinfo='percent',
+                textposition='inside',
+                textfont_size=20,
+                textfont_color='white'
+            )
+
+            fig_pie.update_layout(
+                height=450,
+                legend=dict(orientation="h", y=-0.1, x=0.5, xanchor="center", font=dict(size=14)),
+                margin=dict(t=20, b=100)
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            st.info("No data for Obstacles")
+
+        # --- Visualisasi 5: Waste Type Preference (TAMBAHAN BARU - Full Width) ---
+        st.divider()
+        st.subheader("Waste Type Preference")
+        waste_df = data[data['Category'] == 'Waste Type']
+        
+        if not waste_df.empty:
+            waste_counts = waste_df['Value'].value_counts().reset_index()
+            waste_counts.columns = ['Waste Type', 'Count']
+            
+            # Membuat label gabungan: Jenis Sampah + Angka
+            waste_counts['Full_Label'] = waste_counts['Waste Type'] + "<br>" + waste_counts['Count'].astype(str)
+
+            fig_waste = px.bar(
+                waste_counts, 
+                x='Waste Type', 
+                y='Count',
+                text='Full_Label',
+                color_discrete_sequence=['#8E44AD'] # Warna Ungu Solid yang elegan dan kontras
+            )
+
+            fig_waste.update_traces(
+                textposition='inside',
+                insidetextanchor='middle',
+                textfont=dict(size=16, color='white', family='Arial Black')
+            )
+
+            fig_waste.update_layout(
+                xaxis_title="",
+                yaxis_title="Jumlah Pencarian",
+                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
+                height=450,
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
+            st.plotly_chart(fig_waste, use_container_width=True)
+        else:
+            st.info("Belum ada data untuk Waste Type")
+
+        # --- Visualisasi 6: Aisle Category Demand (Full Width & Di Bawah) ---
+        st.divider()
+        st.subheader("Aisle Category Demand")
+        aisle_df = data[data['Category'] == 'Aisle Category']
+        
+        if not aisle_df.empty:
+            aisle_counts = aisle_df['Value'].value_counts().reset_index()
+            aisle_counts.columns = ['Aisle', 'Count']
+            
+            # Membuat label gabungan: Nama Kategori + Jumlah
+            aisle_counts['Full_Label'] = aisle_counts['Aisle'] + " (" + aisle_counts['Count'].astype(str) + ")"
+
+            fig_aisle = px.bar(
+                aisle_counts, 
+                x='Aisle', 
+                y='Count',
+                text='Full_Label', # Label lengkap muncul di batang
+                color_discrete_sequence=['#0078D4']
+            )
+
+            fig_aisle.update_traces(
+                textposition='inside',
+                insidetextanchor='middle',
+                textfont=dict(size=16, color='white', family='Arial Black')
+            )
+
+            fig_aisle.update_layout(
+                xaxis_title="Kategori Lorong",
+                yaxis_title="Jumlah Pencarian",
+                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
+                font=dict(size=14),
+                height=400, # Tinggi sedikit dikurangi agar tidak terlalu memanjang ke bawah
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
+            st.plotly_chart(fig_aisle, use_container_width=True)
+        else:
+            st.info("No data for Aisle Category")
+
+        
+        # --- Tabel Data Mentah ---
+        with st.expander("View Data Details"):
+            st.dataframe(data.iloc[::-1], use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Failed to load Dashboard: {e}")
+       
 # --- MAIN APP ---
 def main():
     if 'logged_in' not in st.session_state: st.session_state.logged_in = False
@@ -408,13 +900,17 @@ def main():
         st.session_state.logged_in = False
         st.rerun()
     
-    pages = ["Product Library"]
+    pages = ["Product Library", "Product Analytics" , "Filter Analytics"]
     if st.session_state.role == "Admin":
         pages.extend(["Login History", "User Management"])
     
     selected_page = st.sidebar.selectbox("Navigate to", pages)
 
-    if selected_page == "Login History":
+    if selected_page == "Product Analytics":
+        show_product_analytics_page()
+    elif selected_page == "Filter Analytics":
+        filter_analytics_page()
+    elif selected_page == "Login History":
         show_history_page()
     elif selected_page == "User Management":
         show_user_management_page()
@@ -506,6 +1002,14 @@ def main():
 
         st.divider()
         st.subheader(f"Results: {len(res)} Products Found")
+
+        def handle_view_details(row, filters):
+            # 1. Jalankan logging filter (Pecah baris otomatis)
+            log_filter_to_gsheet(st.session_state.username, filters)
+    
+            # 2. Jalankan fungsi buka detail yang sudah Anda miliki
+            click_detail(row)
+        
         
         if len(res) > 0:
             cols = st.columns(3)
@@ -515,7 +1019,29 @@ def main():
                         st.image(get_image_path(row['General Specifications']))
                         st.markdown(f"**{row['Brand']}**")
                         st.caption(row.get('Model Variations', '-'))
-                        st.button("View Details", key=f"btn_{index}", on_click=click_detail, args=(row,))
+                
+                        # --- KUMPULKAN FILTER YANG SEDANG AKTIF ---
+                        # Sesuaikan nama variabel di kanan (ptype_filter, dll) 
+                        # dengan nama variabel widget multiselect/slider Anda
+                        current_filters = {
+                            'brand': pilihan_produk,      # Sesuai baris 716
+                            'product_type': filter_type,  # Sesuai baris 719
+                            'environment': filter_env,    # Sesuai baris 722
+                            'floor_type': filter_floor,   # Sesuai baris 725
+                            'area': filter_area,          # Sesuai baris 728
+                            'slope': filter_slope,        # Sesuai baris 731
+                            'aisle_cat': filter_aisle_cat, # Sesuai baris 734
+                            'obstacle': selected_obstacles, # Sesuai baris 738
+                            'waste_type': selected_wastes   # Sesuai baris 747
+                        }
+                
+                        # --- GANTI ON_CLICK KE WRAPPER ---
+                        st.button(
+                            "View Details", 
+                            key=f"btn_{index}", 
+                            on_click=handle_view_details, 
+                            args=(row, current_filters) # Kirim row DAN data filter
+                        )
         else:
             st.warning("No products match these filters.")
                 
@@ -531,9 +1057,7 @@ def main():
         # 2. Menangani Popup Perbandingan (Comparison)
         if st.session_state.show_compare:
             show_comparison(st.session_state.compare_base, df)
-            # Opsional: Jika popup pembanding juga sering muncul sendiri, 
-            # aktifkan baris di bawah ini:
-            # st.session_state.show_compare = False
+            st.session_state.show_compare = False # KUNCI PERBAIKAN
 
 if __name__ == "__main__":
     main()
