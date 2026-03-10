@@ -801,189 +801,118 @@ def filter_analytics_page():
                 'displayModeBar': True
             }
 
-       # --- Visualisasi 1: Environment Preference ---
+          # --- Visualisasi 1: Environment Preference ---
         st.divider()
         st.subheader("Environment Preference")
         env_df = data[data['Category'] == 'Environment']
         if not env_df.empty:
             env_counts = env_df['Value'].value_counts().reset_index()
             env_counts.columns = ['Environment', 'Count']
+            max_val = env_counts['Count'].max()
 
-            fig_env = px.bar(
-                env_counts, 
-                x='Environment', 
-                y='Count',
-                text='Count',
-                color_discrete_sequence=['#E67E22']
-            )
-
-            fig_env.update_traces(
-                textposition='outside',
-                textfont=dict(size=22, family='Arial Black') # Ukuran angka diperbesar
-            )
-
+            fig_env = px.bar(env_counts, x='Environment', y='Count', text='Count', color_discrete_sequence=['#E67E22'])
+            fig_env.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_env.update_layout(
-                xaxis_title="",
-                yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=True, tickfont=dict(size=18)), # Ukuran label kategori diperbesar
-                height=650,
-                margin=dict(l=20, r=20, t=30, b=40)
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_val * 1.3], tickfont=dict(size=14)),
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=500, margin=dict(l=20, r=20, t=80, b=40)
             )
-            st.plotly_chart(fig_env, use_container_width=True)
+            st.plotly_chart(fig_env, use_container_width=True, config=plotly_config)
 
         # --- Visualisasi 2: Most Searched Floor Types ---
         st.subheader("Most Searched Floor Types")
         floor_data = data[data['Category'] == 'Floor Type']
-
         if not floor_data.empty:
             floor_counts = floor_data['Value'].value_counts().reset_index()
             floor_counts.columns = ['Floor Type', 'Count']
-           
-            fig_floor = px.bar(
-                floor_counts, 
-                x='Floor Type', 
-                y='Count',
-                text='Count',
-                color_discrete_sequence=['#004d1a']
-            )
+            max_val = floor_counts['Count'].max()
 
-            fig_floor.update_traces(
-                textposition='outside',
-                textfont=dict(size=22, family='Arial Black')
-            )
-
+            fig_floor = px.bar(floor_counts, x='Floor Type', y='Count', text='Count', color_discrete_sequence=['#004d1a'])
+            fig_floor.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_floor.update_layout(
-                xaxis_title="",
-                yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=True, tickfont=dict(size=18)), 
-                height=650,
-                margin=dict(l=20, r=20, t=30, b=40)
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_val * 1.3], tickfont=dict(size=14)),
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=550, margin=dict(l=20, r=20, t=80, b=40)
             )
-            st.plotly_chart(fig_floor, use_container_width=True)
+            st.plotly_chart(fig_floor, use_container_width=True, config=plotly_config)
 
         # --- Visualisasi 3: Product Type Preference ---
         st.divider()
         st.subheader("Product Type Preference")
         pt_df = data[data['Category'] == 'Product Type']
-        
         if not pt_df.empty:
             pt_counts = pt_df['Value'].value_counts().reset_index()
             pt_counts.columns = ['Product Type', 'Count']
-            
-            fig_pt = px.bar(
-                pt_counts, 
-                x='Product Type', 
-                y='Count',
-                text='Count',
-                color_discrete_sequence=['#16A085']
-            )
+            max_val = pt_counts['Count'].max()
 
-            fig_pt.update_traces(
-                textposition='outside',
-                textfont=dict(size=22, family='Arial Black')
-            )
-
+            fig_pt = px.bar(pt_counts, x='Product Type', y='Count', text='Count', color_discrete_sequence=['#16A085'])
+            fig_pt.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_pt.update_layout(
-                xaxis_title="",
-                yaxis_title="Jumlah Pencarian",
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_val * 1.3], tickfont=dict(size=14)),
                 xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
-                height=650,
-                margin=dict(l=20, r=20, t=30, b=40)
+                height=500, margin=dict(l=20, r=20, t=80, b=40)
             )
-            st.plotly_chart(fig_pt, use_container_width=True)
+            st.plotly_chart(fig_pt, use_container_width=True, config=plotly_config)
 
         # --- Visualisasi 4: Obstacle Preference ---
         st.divider() 
         st.subheader("Obstacle Preference")
         obs_df = data[data['Category'] == 'Obstacle']
-
         if not obs_df.empty:
             obs_counts = obs_df['Value'].value_counts().reset_index()
             obs_counts.columns = ['Obstacle', 'Count']
-    
-            fig_obs = px.bar(
-                obs_counts, 
-                x='Obstacle', 
-                y='Count',
-                text='Count',
-                color_discrete_sequence=['#34495E']
-            )
-    
-            fig_obs.update_traces(
-                textposition='outside',
-                textfont=dict(size=22, family='Arial Black')
-            )
+            max_val = obs_counts['Count'].max()
 
+            fig_obs = px.bar(obs_counts, x='Obstacle', y='Count', text='Count', color_discrete_sequence=['#34495E'])
+            fig_obs.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_obs.update_layout(
-                xaxis_title="",
-                yaxis_title="Jumlah Pencarian",
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_val * 1.3], tickfont=dict(size=14)),
                 xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
-                height=650,
-                margin=dict(l=20, r=20, t=30, b=40)
+                height=500, margin=dict(l=20, r=20, t=80, b=40)
             )
-            st.plotly_chart(fig_obs, use_container_width=True)
-    
+            st.plotly_chart(fig_obs, use_container_width=True, config=plotly_config)
+
         # --- Visualisasi 5: Waste Type Preference ---
         st.divider()
         st.subheader("Waste Type Preference")
         waste_df = data[data['Category'] == 'Waste Type']
-        
         if not waste_df.empty:
             waste_counts = waste_df['Value'].value_counts().reset_index()
             waste_counts.columns = ['Waste Type', 'Count']
+            max_val = waste_counts['Count'].max()
 
-            fig_waste = px.bar(
-                waste_counts, 
-                x='Waste Type', 
-                y='Count',
-                text='Count',
-                color_discrete_sequence=['#8E44AD']
-            )
-
-            fig_waste.update_traces(
-                textposition='outside',
-                textfont=dict(size=22, family='Arial Black')
-            )
-
+            fig_waste = px.bar(waste_counts, x='Waste Type', y='Count', text='Count', color_discrete_sequence=['#8E44AD'])
+            fig_waste.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_waste.update_layout(
-                xaxis_title="",
-                yaxis_title="Jumlah Pencarian",
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_val * 1.3], tickfont=dict(size=14)),
                 xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
-                height=650,
-                margin=dict(l=20, r=20, t=30, b=40)
+                height=500, margin=dict(l=20, r=20, t=80, b=40)
             )
-            st.plotly_chart(fig_waste, use_container_width=True)
+            st.plotly_chart(fig_waste, use_container_width=True, config=plotly_config)
 
         # --- Visualisasi 6: Aisle Category Demand ---
         st.divider()
         st.subheader("Aisle Category Demand")
         aisle_df = data[data['Category'] == 'Aisle Category']
-        
         if not aisle_df.empty:
             aisle_counts = aisle_df['Value'].value_counts().reset_index()
             aisle_counts.columns = ['Aisle', 'Count']
+            max_val = aisle_counts['Count'].max()
 
-            fig_aisle = px.bar(
-                aisle_counts, 
-                x='Aisle', 
-                y='Count',
-                text='Count',
-                color_discrete_sequence=['#0078D4']
-            )
-
-            fig_aisle.update_traces(
-                textposition='outside',
-                textfont=dict(size=22, family='Arial Black')
-            )
-
+            fig_aisle = px.bar(aisle_counts, x='Aisle', y='Count', text='Count', color_discrete_sequence=['#0078D4'])
+            fig_aisle.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_aisle.update_layout(
-                xaxis_title="",
-                yaxis_title="Jumlah Pencarian",
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_val * 1.3], tickfont=dict(size=14)),
                 xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
-                height=650,
-                margin=dict(l=20, r=20, t=30, b=40)
+                height=450, margin=dict(l=20, r=20, t=80, b=40)
             )
-            st.plotly_chart(fig_aisle, use_container_width=True)
+            st.plotly_chart(fig_aisle, use_container_width=True, config=plotly_config)
         
         # --- Tabel Data Mentah dengan Tombol Export ---
         st.divider()
