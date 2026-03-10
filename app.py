@@ -760,21 +760,21 @@ def filter_analytics_page():
                 env_counts, 
                 x='Environment', 
                 y='Count',
-                text='Count', # Hanya angka yang muncul di atas batang
+                text='Count',
                 color_discrete_sequence=['#E67E22']
             )
 
             fig_env.update_traces(
-                textposition='outside', # Label pindah ke luar
-                textfont=dict(size=14, family='Arial Black')
+                textposition='outside',
+                textfont=dict(size=22, family='Arial Black') # Ukuran angka diperbesar
             )
 
             fig_env.update_layout(
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=True), # Tampilkan nama kategori di bawah
-                height=450,
-                margin=dict(l=20, r=20, t=20, b=20)
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)), # Ukuran label kategori diperbesar
+                height=500,
+                margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_env, use_container_width=True)
 
@@ -796,15 +796,15 @@ def filter_analytics_page():
 
             fig_floor.update_traces(
                 textposition='outside',
-                textfont=dict(size=14, family='Arial Black')
+                textfont=dict(size=22, family='Arial Black')
             )
 
             fig_floor.update_layout(
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=True), 
-                height=500,
-                margin=dict(l=20, r=20, t=50, b=20)
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)), 
+                height=550,
+                margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_floor, use_container_width=True)
 
@@ -827,15 +827,15 @@ def filter_analytics_page():
 
             fig_pt.update_traces(
                 textposition='outside',
-                textfont=dict(size=14, family='Arial Black')
+                textfont=dict(size=22, family='Arial Black')
             )
 
             fig_pt.update_layout(
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=True),
-                height=450,
-                margin=dict(l=20, r=20, t=50, b=20)
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=500,
+                margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_pt, use_container_width=True)
 
@@ -858,15 +858,15 @@ def filter_analytics_page():
     
             fig_obs.update_traces(
                 textposition='outside',
-                textfont=dict(size=14, family='Arial Black')
+                textfont=dict(size=22, family='Arial Black')
             )
 
             fig_obs.update_layout(
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=True),
-                height=450,
-                margin=dict(l=20, r=20, t=50, b=20)
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=500,
+                margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_obs, use_container_width=True)
     
@@ -889,15 +889,15 @@ def filter_analytics_page():
 
             fig_waste.update_traces(
                 textposition='outside',
-                textfont=dict(size=14, family='Arial Black')
+                textfont=dict(size=22, family='Arial Black')
             )
 
             fig_waste.update_layout(
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=True),
-                height=450,
-                margin=dict(l=20, r=20, t=50, b=20)
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=500,
+                margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_waste, use_container_width=True)
 
@@ -920,15 +920,15 @@ def filter_analytics_page():
 
             fig_aisle.update_traces(
                 textposition='outside',
-                textfont=dict(size=14, family='Arial Black')
+                textfont=dict(size=22, family='Arial Black')
             )
 
             fig_aisle.update_layout(
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=True),
-                height=400,
-                margin=dict(l=20, r=20, t=50, b=20)
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=450,
+                margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_aisle, use_container_width=True)
         
