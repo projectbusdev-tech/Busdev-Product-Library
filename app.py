@@ -264,7 +264,7 @@ def show_product_analytics_page():
         with m5: custom_metric("Top Model (All)", m_name, f"{max_m} acts")
 
         # --- VISUALISASI (Berdasarkan Filter Aktivitas) ---
-        st.write(f"### 📈 Charts: {selected_activity}")
+        st.write(f"### 📈 Charts: {selected_activity} Per Brand & Model")
         
         # Filter data khusus untuk grafik
         if selected_activity != "All Activities":
