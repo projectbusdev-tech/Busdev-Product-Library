@@ -773,8 +773,8 @@ def filter_analytics_page():
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
                 xaxis=dict(showticklabels=True, tickfont=dict(size=18)), # Ukuran label kategori diperbesar
-                height=500,
-                margin=dict(l=20, r=20, t=120, b=40)
+                height=400,
+                margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_env, use_container_width=True)
 
