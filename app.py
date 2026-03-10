@@ -201,6 +201,13 @@ def signup_dialog():
             else:
                 st.warning(msg)
 
+def convert_df_to_excel(df):
+    output = io.BytesIO()
+    # Menggunakan engine xlsxwriter agar lebih cepat dan ringan
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Sheet1')
+    return output.getvalue()
+
 # --- PAGES ---
 
 def show_product_analytics_page():
@@ -293,10 +300,37 @@ def show_product_analytics_page():
         else:
             st.warning(f"Tidak ada data untuk kategori {selected_activity}")
 
-    # Tabel Detail
+    # --- TABEL DETAIL & EXPORT ---
     st.divider()
     st.subheader("📄 Activity Logs")
-    st.dataframe(df_filtered[["Timestamp", "Username", "Brand", "Model", "RecordType"]].iloc[::-1], use_container_width=True)
+    
+    # Menyiapkan DataFrame untuk tampilan dan export
+    df_display = df_filtered[["Timestamp", "Username", "Brand", "Model", "RecordType"]].iloc[::-1]
+    
+    st.dataframe(df_display, use_container_width=True)
+    
+    # --- TOMBOL EXPORT BERDAMPINGAN ---
+    col_ex1, col_ex2, _ = st.columns([1, 1, 3])
+    
+    with col_ex1:
+        # Tombol Export CSV
+        csv = df_display.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Export to CSV",
+            data=csv,
+            file_name='product_activity_logs.csv',
+            mime='text/csv',
+        )
+
+    with col_ex2:
+        # Tombol Export Excel
+        excel_data = convert_df_to_excel(df_display)
+        st.download_button(
+            label="📊 Export to Excel",
+            data=excel_data,
+            file_name='product_activity_logs.xlsx',
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
 
 # --- HISTORY LOGIC ---
 def log_login(username, role):
