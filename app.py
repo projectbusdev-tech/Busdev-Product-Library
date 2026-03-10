@@ -306,13 +306,13 @@ def show_product_analytics_page():
 
             with c1:
                 fig_b = px.bar(chart_brand, x='Brand', y='count', color='Brand', color_discrete_map=color_map, text='Brand')
-                fig_b.update_layout(height=450, showlegend=False, yaxis_title="Total Actions")
+                fig_b.update_layout(height=700, showlegend=False, yaxis_title="Total Actions")
                 fig_b.update_traces(textposition='inside', texttemplate='%{text}<br>%{y}', textfont=dict(size=16, color='white', family='Arial Black'))
                 st.plotly_chart(fig_b, use_container_width=True)
 
             with c2:
                 fig_m = px.bar(chart_model.head(10), x='count', y='Model', orientation='h', text='Model', color_discrete_sequence=['#2ECC71'])
-                fig_m.update_layout(height=450, yaxis=dict(showticklabels=False))
+                fig_m.update_layout(height=700, yaxis=dict(showticklabels=False))
                 fig_m.update_traces(textposition='inside', texttemplate=' %{text} (%{x})', textfont=dict(size=14, color='white', family='Arial Black'))
                 st.plotly_chart(fig_m, use_container_width=True)
         else:
@@ -803,7 +803,7 @@ def filter_analytics_page():
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
                 xaxis=dict(showticklabels=True, tickfont=dict(size=18)), 
-                height=550,
+                height=800,
                 margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_floor, use_container_width=True)
@@ -927,7 +927,7 @@ def filter_analytics_page():
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
                 xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
-                height=450,
+                height=800,
                 margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_aisle, use_container_width=True)
