@@ -773,7 +773,7 @@ def filter_analytics_page():
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
                 xaxis=dict(showticklabels=True, tickfont=dict(size=18)), # Ukuran label kategori diperbesar
-                height=800,
+                height=650,
                 margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_env, use_container_width=True)
@@ -803,7 +803,7 @@ def filter_analytics_page():
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
                 xaxis=dict(showticklabels=True, tickfont=dict(size=18)), 
-                height=800,
+                height=650,
                 margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_floor, use_container_width=True)
@@ -834,7 +834,7 @@ def filter_analytics_page():
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
                 xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
-                height=800,
+                height=650,
                 margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_pt, use_container_width=True)
@@ -865,7 +865,7 @@ def filter_analytics_page():
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
                 xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
-                height=800,
+                height=650,
                 margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_obs, use_container_width=True)
@@ -896,7 +896,7 @@ def filter_analytics_page():
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
                 xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
-                height=800,
+                height=650,
                 margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_waste, use_container_width=True)
@@ -927,7 +927,7 @@ def filter_analytics_page():
                 xaxis_title="",
                 yaxis_title="Jumlah Pencarian",
                 xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
-                height=800,
+                height=650,
                 margin=dict(l=20, r=20, t=60, b=40)
             )
             st.plotly_chart(fig_aisle, use_container_width=True)
