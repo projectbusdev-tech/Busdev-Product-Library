@@ -535,7 +535,7 @@ def show_detail(row, full_df):
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
     aisle_w = row.get('Aisle Width (cm)', '-')
     aisle_cat = clean_list_string(row.get('Aisle Category'))
-    environment = clean_list_string(row.get('Environment'))
+    env_val = clean_list_string(row.get('Environment'))
     slope_val = row.get('Max_Slope', '-') 
     max_area = row.get('Targeted Cleaning_Area', '-')
     floor_type = clean_list_string(row.get('Floor_Type_List'))
@@ -560,7 +560,7 @@ def show_detail(row, full_df):
     with col1:
         st.subheader("General Specifications")
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
-        st.write(f"**Environment:** {row.get('environment', '-')}")
+        st.write(f"**Environment:** {env_val}")
         st.write(f"**Floor Type:** {floor_type}") 
         st.write(f"**Max Target Cleaning Area:** :green[**{max_area} m²/5h**]")
         st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
