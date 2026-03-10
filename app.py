@@ -359,16 +359,17 @@ def show_product_analytics_page():
         )
 
 # --- HISTORY LOGIC ---
-def log_login(username, role):
+def log_login(username, role, status="Success"):
     try:
+        # Semua baris di bawah ini harus menjorok ke dalam (indentasi)
         wib_now = datetime.now() + timedelta(hours=7) 
-    now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
-    
-    # URUTAN HARUS: [Username, Role, Timestamp, Status]
-    # Sesuai dengan kolom A, B, C, D di GSheet
-    new_entry = [[username, role, now_str, status]]
-    
-    append_gsheet_data("LoginHistory", new_entry)
+        now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
+        
+        # URUTAN: [Username, Role, Timestamp, Status]
+        new_entry = [[username, role, now_str, status]]
+        
+        # Mengirim data ke Google Sheets
+        append_gsheet_data("LoginHistory", new_entry)
         
     except Exception as e:
         st.error(f"Gagal mencatat log login ke GSheet: {e}")
