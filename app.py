@@ -791,6 +791,16 @@ def filter_analytics_page():
             st.warning("No Data.")
             return
 
+        plotly_config = {
+                'displaylogo': False,
+                'modeBarButtonsToRemove': [
+                    'zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 
+                    'zoomOut2d', 'autoScale2d', 'resetScale2d', 'hoverClosestCartesian', 
+                    'hoverCompareCartesian', 'toggleSpikelines'
+                ],
+                'displayModeBar': True
+            }
+
        # --- Visualisasi 1: Environment Preference ---
         st.divider()
         st.subheader("Environment Preference")
