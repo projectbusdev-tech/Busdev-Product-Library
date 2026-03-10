@@ -307,13 +307,13 @@ def show_product_analytics_page():
             with c1:
                 fig_b = px.bar(chart_brand, x='Brand', y='count', color='Brand', color_discrete_map=color_map, text='Brand')
                 fig_b.update_layout(height=600, showlegend=False, yaxis_title="Total Actions")
-                fig_b.update_traces(textposition='outside', texttemplate='%{text}<br>%{y}', textfont=dict(size=20, color='white', family='Arial Black'))
+                fig_b.update_traces(textposition='outside', texttemplate='%{text}<br>%{y}', textfont=dict(size=16, color='white', family='Arial Black'))
                 st.plotly_chart(fig_b, use_container_width=True)
 
             with c2:
                 fig_m = px.bar(chart_model.head(10), x='count', y='Model', orientation='h', text='Model', color_discrete_sequence=['#2ECC71'])
                 fig_m.update_layout(height=600, yaxis=dict(showticklabels=False))
-                fig_m.update_traces(textposition='outside', texttemplate=' %{text} (%{x})', textfont=dict(size=20, color='white', family='Arial Black'))
+                fig_m.update_traces(textposition='outside', texttemplate=' %{text} (%{x})', textfont=dict(size=16, color='white', family='Arial Black'))
                 st.plotly_chart(fig_m, use_container_width=True)
         else:
             st.warning(f"Tidak ada data untuk kategori {selected_activity}")
