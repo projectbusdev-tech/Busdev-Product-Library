@@ -869,38 +869,45 @@ def filter_analytics_page():
 
         
         # --- Visualisasi 4: Obstacle Preference (Full Width) ---
-        st.divider() # Garis pemisah agar rapi
+        st.divider() 
         st.subheader("Obstacle Preference")
         obs_df = data[data['Category'] == 'Obstacle']
-        
+
         if not obs_df.empty:
             obs_counts = obs_df['Value'].value_counts().reset_index()
-            obs_counts.columns = ['Value', 'count']
-            
-            fig_pie = px.pie(
+            obs_counts.columns = ['Obstacle', 'Count']
+    
+            # Gabungkan Label Kategori + Angka untuk teks di dalam bar
+            obs_counts['Full_Label'] = obs_counts['Obstacle'] + "<br>" + obs_counts['Count'].astype(str)
+    
+            # Membuat Bar Chart
+            fig_obs = px.bar(
                 obs_counts, 
-                values='count', 
-                names='Value', 
-                hole=0.3,
-                color_discrete_sequence=px.colors.sequential.RdBu
+                x='Obstacle', 
+                y='Count',
+                text='Full_Label',
+                color_discrete_sequence=['#34495E'] # Warna Midnight Blue agar beda dengan chart lain
             )
-            
-            fig_pie.update_traces(
-                textinfo='percent',
+    
+            # Styling agar teks berada di tengah batang dan berwarna putih
+            fig_obs.update_traces(
                 textposition='inside',
-                textfont_size=20,
-                textfont_color='white'
+                insidetextanchor='middle',
+                textfont=dict(size=16, color='white', family='Arial Black')
             )
 
-            fig_pie.update_layout(
+            fig_obs.update_layout(
+                xaxis_title="",
+                yaxis_title="Jumlah Pencarian",
+                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam batang
                 height=450,
-                legend=dict(orientation="h", y=-0.1, x=0.5, xanchor="center", font=dict(size=14)),
-                margin=dict(t=20, b=100)
+                margin=dict(l=20, r=20, t=20, b=20)
             )
-            st.plotly_chart(fig_pie, use_container_width=True)
+    
+            st.plotly_chart(fig_obs, use_container_width=True)
         else:
             st.info("No data for Obstacles")
-
+    
         # --- Visualisasi 5: Waste Type Preference (TAMBAHAN BARU - Full Width) ---
         st.divider()
         st.subheader("Waste Type Preference")
