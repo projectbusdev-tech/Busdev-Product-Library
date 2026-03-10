@@ -146,6 +146,32 @@ def log_filter_to_gsheet(username, filters):
     except Exception as e:
         st.error(f"Gagal mencatat log filter: {e}")
 
+def clear_gsheet_content(sheet_name):
+    """
+    Menghapus semua data di worksheet tertentu, 
+    tetapi tetap menyisakan baris pertama (Header).
+    """
+    try:
+        # 1. Buka worksheet berdasarkan nama
+        sheet = client.open("UserDB_PdLibrary").worksheet(sheet_name)
+        
+        # 2. Ambil semua data untuk menghitung jumlah baris yang ada
+        all_values = sheet.get_all_values()
+        
+        if len(all_values) > 1:
+            # Hapus mulai dari baris ke-2 sampai baris terakhir
+            # (Baris 1 di GSheet adalah Header)
+            sheet.delete_rows(2, len(all_values))
+            return True
+        else:
+            # Tidak ada data selain header
+            return False
+            
+    except Exception as e:
+        st.error(f"Gagal menghapus data di GSheet: {e}")
+        return False
+
+
 def load_registered_users():
     """Membaca data user dari Google Sheets secara real-time."""
     try:
@@ -335,16 +361,14 @@ def show_product_analytics_page():
 # --- HISTORY LOGIC ---
 def log_login(username, role):
     try:
-        # 1. Ambil waktu sekarang (WIB)
         wib_now = datetime.now() + timedelta(hours=7) 
-        now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
-        
-        # 2. Siapkan data dalam bentuk list of list (format untuk GSheet)
-        # Urutan kolom: Username, Role, Timestamp
-        new_entry = [[username, role, now_str]]
-        
-        # 3. Kirim ke GSheet worksheet "LoginHistory"
-        append_gsheet_data("LoginHistory", new_entry)
+    now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
+    
+    # URUTAN HARUS: [Username, Role, Timestamp, Status]
+    # Sesuai dengan kolom A, B, C, D di GSheet
+    new_entry = [[username, role, now_str, status]]
+    
+    append_gsheet_data("LoginHistory", new_entry)
         
     except Exception as e:
         st.error(f"Gagal mencatat log login ke GSheet: {e}")
@@ -352,50 +376,38 @@ def log_login(username, role):
 def show_history_page():
     st.title("📜 Login History")
     
-    # 1. Load data dari Google Sheets (Worksheet: LoginHistory)
+    # Ambil data dari GSheet
     history_df = load_gsheet_data("LoginHistory")
     
     if not history_df.empty:
-        # Pastikan Timestamp terbaca sebagai datetime agar sorting akurat
-        history_df['Timestamp'] = pd.to_datetime(history_df['Timestamp'])
-        df_display = history_df.sort_values(by='Timestamp', ascending=False)
-        
-        # 2. Tampilkan Tabel
+        # Tampilkan Tabel (Data terbaru di atas)
+        df_display = history_df.iloc[::-1]
         st.dataframe(df_display, use_container_width=True)
         
-        # 3. Baris Tombol Aksi (Export & Clear)
+        # Baris Tombol Aksi
         col_ex1, col_ex2, col_clear = st.columns([1, 1, 2])
         
         with col_ex1:
-            # Export CSV
             csv_data = df_display.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Export to CSV",
-                data=csv_data,
-                file_name='login_history.csv',
-                mime='text/csv'
-            )
+            st.download_button("📥 Export CSV", csv_data, "login_logs.csv", "text/csv")
             
         with col_ex2:
-            # Export Excel (Menggunakan fungsi helper yang kita buat sebelumnya)
             excel_data = convert_df_to_excel(df_display)
-            st.download_button(
-                label="📊 Export to Excel",
-                data=excel_data,
-                file_name='login_history.xlsx',
-                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
+            st.download_button("📊 Export Excel", excel_data, "login_logs.xlsx")
 
+        # LOGIKA TOMBOL CLEAR
         with col_clear:
-            # Tombol Hapus hanya muncul untuk Admin
             if st.session_state.role == "Admin":
-                if st.button("🗑️ Clear GSheet History", type="secondary"):
-                    # Panggil fungsi untuk mengosongkan worksheet (kecuali header)
-                    clear_gsheet_content("LoginHistory")
-                    st.success("History pada Google Sheets berhasil dihapus!")
-                    st.rerun()
+                # Gunakan popover atau warning agar tidak tidak sengaja terhapus
+                if st.button("🗑️ Clear All History", type="secondary", help="Hapus semua data di GSheet"):
+                    status = clear_gsheet_content("LoginHistory")
+                    if status:
+                        st.success("History berhasil dibersihkan!")
+                        st.rerun()
+                    else:
+                        st.info("History sudah kosong (hanya tersisa header).")
     else:
-        st.info("Belum ada riwayat login yang tersimpan di Google Sheets.")
+        st.info("No login history available in Google Sheets.")
 
 def login_screen():
     st.markdown("<h2 style='text-align: center;'>Product Library</h2>", unsafe_allow_html=True)
