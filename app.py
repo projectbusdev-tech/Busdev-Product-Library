@@ -334,24 +334,68 @@ def show_product_analytics_page():
 
 # --- HISTORY LOGIC ---
 def log_login(username, role):
-    wib_now = datetime.now() + timedelta(hours=7) 
-    now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
-    new_entry = pd.DataFrame([[username, role, now_str]], columns=["Username", "Role", "Timestamp"])
-    if not os.path.isfile(HISTORY_FILE):
-        new_entry.to_csv(HISTORY_FILE, index=False)
-    else:
-        new_entry.to_csv(HISTORY_FILE, mode='a', header=False, index=False)
+    try:
+        # 1. Ambil waktu sekarang (WIB)
+        wib_now = datetime.now() + timedelta(hours=7) 
+        now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
+        
+        # 2. Siapkan data dalam bentuk list of list (format untuk GSheet)
+        # Urutan kolom: Username, Role, Timestamp
+        new_entry = [[username, role, now_str]]
+        
+        # 3. Kirim ke GSheet worksheet "LoginHistory"
+        append_gsheet_data("LoginHistory", new_entry)
+        
+    except Exception as e:
+        st.error(f"Gagal mencatat log login ke GSheet: {e}")
 
 def show_history_page():
     st.title("📜 Login History")
-    if os.path.exists(HISTORY_FILE):
-        history_df = pd.read_csv(HISTORY_FILE)
-        st.dataframe(history_df.iloc[::-1], use_container_width=True)
-        if st.button("Clear History"):
-            os.remove(HISTORY_FILE)
-            st.rerun()
+    
+    # 1. Load data dari Google Sheets (Worksheet: LoginHistory)
+    history_df = load_gsheet_data("LoginHistory")
+    
+    if not history_df.empty:
+        # Pastikan Timestamp terbaca sebagai datetime agar sorting akurat
+        history_df['Timestamp'] = pd.to_datetime(history_df['Timestamp'])
+        df_display = history_df.sort_values(by='Timestamp', ascending=False)
+        
+        # 2. Tampilkan Tabel
+        st.dataframe(df_display, use_container_width=True)
+        
+        # 3. Baris Tombol Aksi (Export & Clear)
+        col_ex1, col_ex2, col_clear = st.columns([1, 1, 2])
+        
+        with col_ex1:
+            # Export CSV
+            csv_data = df_display.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Export to CSV",
+                data=csv_data,
+                file_name='login_history.csv',
+                mime='text/csv'
+            )
+            
+        with col_ex2:
+            # Export Excel (Menggunakan fungsi helper yang kita buat sebelumnya)
+            excel_data = convert_df_to_excel(df_display)
+            st.download_button(
+                label="📊 Export to Excel",
+                data=excel_data,
+                file_name='login_history.xlsx',
+                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+
+        with col_clear:
+            # Tombol Hapus hanya muncul untuk Admin
+            if st.session_state.role == "Admin":
+                if st.button("🗑️ Clear GSheet History", type="secondary"):
+                    # Panggil fungsi untuk mengosongkan worksheet (kecuali header)
+                    clear_gsheet_content("LoginHistory")
+                    st.success("History pada Google Sheets berhasil dihapus!")
+                    st.rerun()
     else:
-        st.info("No login history available.")
+        st.info("Belum ada riwayat login yang tersimpan di Google Sheets.")
 
 def login_screen():
     st.markdown("<h2 style='text-align: center;'>Product Library</h2>", unsafe_allow_html=True)
