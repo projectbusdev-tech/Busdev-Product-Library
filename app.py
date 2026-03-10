@@ -243,9 +243,9 @@ def show_product_analytics_page():
         m1, m2, m3, m4, m5 = st.columns(5)
         
         # Hitung untuk Card khusus
-        total_dl = len(df_filtered[df_filtered['RecordType'] == 'Download'])
-        total_wa = len(df_filtered[df_filtered['RecordType'] == 'WhatsApp'])
-        total_em = len(df_filtered[df_filtered['RecordType'] == 'Email'])
+        total_dl = len(df_filtered[df_filtered['RecordType'] == 'All Download Per Brand & Model'])
+        total_wa = len(df_filtered[df_filtered['RecordType'] == 'All WhatsApp Share Per Brand & Model'])
+        total_em = len(df_filtered[df_filtered['RecordType'] == 'All Email Share Per Brand & Model'])
         
         # Hitung Top (berdasarkan kombinasi semua aktivitas di range tgl tersebut)
         top_brand_df = df_filtered['Brand'].str.upper().value_counts().reset_index()
