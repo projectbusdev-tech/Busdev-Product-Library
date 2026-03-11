@@ -165,9 +165,16 @@ def clear_gsheet_content(sheet_name):
 
 
 def load_registered_users():
-    """Membaca data user dari Google Sheets secara real-time."""
+    """Membaca data user dari Google Sheets secara real-time dan memastikan tipe data benar."""
     try:
-        return conn.read(ttl=0)
+        # Gunakan worksheet="NamaSheetAnda" jika data user ada di tab khusus
+        df = conn.read(ttl=0) 
+        # Memastikan kolom Password dibaca sebagai string untuk menghindari error angka
+        if not df.empty and 'Password' in df.columns:
+            df['Password'] = df['Password'].astype(str).str.strip()
+        if not df.empty and 'Username' in df.columns:
+            df['Username'] = df['Username'].astype(str).str.strip()
+        return df
     except Exception:
         return pd.DataFrame(columns=["Username", "Password", "Role", "Verified"])
 
@@ -198,9 +205,9 @@ def delete_user_gsheet(email_to_delete):
 @st.dialog("Sign Up")
 def signup_dialog():
     st.write("Daftar akun baru untuk mengakses Product Library.")
-    email_input = st.text_input("Email (@traknus.co.id)")
-    password_input = st.text_input("Buat Password", type="password")
-    confirm_password = st.text_input("Konfirmasi Password", type="password")
+    email_input = st.text_input("Email (@traknus.co.id)").strip()
+    password_input = st.text_input("Buat Password", type="password").strip()
+    confirm_password = st.text_input("Konfirmasi Password", type="password").strip()
     
     if st.button("Daftar Sekarang"):
         if not email_input or not password_input:
@@ -465,8 +472,9 @@ def login_screen():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         with st.form("login_form"):
-            username = st.text_input("Username / Email")
-            password = st.text_input("Password", type="password")
+            # Tambahkan .strip() untuk membersihkan spasi tak sengaja
+            username = st.text_input("Username / Email").strip()
+            password = st.text_input("Password", type="password").strip()
             submit = st.form_submit_button("Login")
             
             if submit:
@@ -481,7 +489,9 @@ def login_screen():
                 # Cek Database Google Sheets
                 else:
                     users_df = load_registered_users()
-                    match = users_df[(users_df['Username'] == username) & (users_df['Password'] == str(password))]
+                    # Perbandingan dilakukan dengan memastikan kedua belah pihak adalah string
+                    match = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
+                    
                     if not match.empty:
                         st.session_state.logged_in = True
                         st.session_state.username = username
