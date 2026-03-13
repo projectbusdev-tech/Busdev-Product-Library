@@ -703,7 +703,7 @@ def show_detail(row, full_df):
     aisle_cat = clean_list_string(row.get('Aisle Category'))
     env_val = clean_list_string(row.get('Environment'))
     slope_val = row.get('Max_Slope', '-') 
-    max_area = row.get('Targeted Cleaning_Area', '-')
+    max_area = row.get('Target Cleaning Area_(m²/5h)', '-')
     floor_type = clean_list_string(row.get('Floor_Type_List'))
     obstacles = clean_list_string(row.get('Obstacle_List'))
     waste_type = clean_list_string(row.get('Waste_Type_List'))
@@ -1111,8 +1111,8 @@ def main():
             res['temp_slope'] = pd.to_numeric(res['Max_Slope'], errors='coerce').fillna(0)
             res = res[res['temp_slope'] >= filter_slope]
         if filter_area > 0:
-            res['Targeted Cleaning_Area'] = pd.to_numeric(res['Targeted Cleaning_Area'], errors='coerce').fillna(0)
-            res = res[res['Targeted Cleaning_Area'] >= filter_area]
+            res['Target Cleaning Area_(m²/5h)'] = pd.to_numeric(res['Target Cleaning Area_(m²/5h)'], errors='coerce').fillna(0)
+            res = res[res['Target Cleaning Area_(m²/5h)'] >= filter_area]
 
         def apply_list_filter(dataframe, target_col, selected_vals):
             if not selected_vals: return dataframe
