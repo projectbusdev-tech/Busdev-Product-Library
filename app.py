@@ -923,6 +923,68 @@ def filter_analytics_page():
                 height=450, margin=dict(l=20, r=20, t=80, b=40)
             )
             st.plotly_chart(fig_aisle, use_container_width=True, config=plotly_config)
+
+        # --- Visualisasi Tambahan 1: Target Cleaning Area Clustering ---
+        st.divider()
+        st.subheader("Target Cleaning Area Demand (m²/5h)")
+        target_df = data[data['Category'] == 'Target Cleaning Area'].copy()
+
+        if not target_df.empty:
+            # Konversi nilai ke numerik untuk proses clustering
+            target_df['NumericValue'] = pd.to_numeric(target_df['Value'], errors='coerce')
+    
+            # Definisi Cluster
+            bins = [-float('inf'), 22500, 50000, 100000, float('inf')]
+            labels = ['0-22.500', '22.501-50.000', '50.001-100.000', '100.001-Seterusnya']
+    
+            target_df['Cluster'] = pd.cut(target_df['NumericValue'], bins=bins, labels=labels)
+            target_counts = target_df['Cluster'].value_counts().reindex(labels, fill_value=0).reset_index()
+            target_counts.columns = ['Area Range', 'Count']
+            max_val = target_counts['Count'].max()
+
+            fig_target = px.bar(
+                target_counts, x='Area Range', y='Count', text='Count', 
+                color_discrete_sequence=['#C0392B'] # Warna Merah Gelap
+            )
+            fig_target.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
+            fig_target.update_layout(
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, (max_val * 1.3) if max_val > 0 else 10], tickfont=dict(size=14)),
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=550, margin=dict(l=20, r=20, t=80, b=40)
+            )
+            st.plotly_chart(fig_target, use_container_width=True, config=plotly_config)
+
+        # --- Visualisasi Tambahan 2: Max Slope Clustering ---
+        st.divider()
+        st.subheader("Max Slope Preference (%)")
+        slope_df = data[data['Category'] == 'Max Slope'].copy()
+
+        if not slope_df.empty:
+            # Konversi nilai ke numerik
+            slope_df['NumericValue'] = pd.to_numeric(slope_df['Value'], errors='coerce')
+    
+            # Definisi Cluster
+            bins_slope = [-float('inf'), 5, 10, float('inf')]
+            labels_slope = ['0-5', '6-10', '11 - Seterusnya']
+    
+            slope_df['Cluster'] = pd.cut(slope_df['NumericValue'], bins=bins_slope, labels=labels_slope)
+            slope_counts = slope_df['Cluster'].value_counts().reindex(labels_slope, fill_value=0).reset_index()
+            slope_counts.columns = ['Slope Range', 'Count']
+            max_val_slope = slope_counts['Count'].max()
+
+            fig_slope = px.bar(
+                slope_counts, x='Slope Range', y='Count', text='Count', 
+                color_discrete_sequence=['#2980B9'] # Warna Biru
+            )
+            fig_slope.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
+            fig_slope.update_layout(
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, (max_val_slope * 1.3) if max_val_slope > 0 else 10], tickfont=dict(size=14)),
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=550, margin=dict(l=20, r=20, t=80, b=40)
+            )
+            st.plotly_chart(fig_slope, use_container_width=True, config=plotly_config)
         
         # --- Tabel Data Mentah dengan Tombol Export ---
         st.divider()
