@@ -146,10 +146,35 @@ def log_filter_to_gsheet(username, filters):
     except Exception as e:
         st.error(f"Gagal mencatat log filter: {e}")
 
-def load_registered_users():
-    """Membaca data user dari Google Sheets secara real-time."""
+def clear_gsheet_content(sheet_name):
+    """Menghapus data di worksheet dengan menyisakan header saja."""
     try:
-        return conn.read(ttl=0)
+        # Buat DataFrame kosong dengan kolom yang sesuai
+        if sheet_name == "LoginHistory":
+            empty_df = pd.DataFrame(columns=["Username", "Role", "Timestamp", "Status"])
+        else:
+            # Sesuaikan untuk sheet lain jika perlu
+            return False
+
+        # Update sheet tersebut dengan DF kosong (hanya header)
+        conn.update(worksheet=sheet_name, data=empty_df)
+        return True
+    except Exception as e:
+        st.error(f"Gagal menghapus data: {e}")
+        return False
+
+
+def load_registered_users():
+    """Membaca data user dari Google Sheets secara real-time dan memastikan tipe data benar."""
+    try:
+        # Gunakan worksheet="NamaSheetAnda" jika data user ada di tab khusus
+        df = conn.read(ttl=0) 
+        # Memastikan kolom Password dibaca sebagai string untuk menghindari error angka
+        if not df.empty and 'Password' in df.columns:
+            df['Password'] = df['Password'].astype(str).str.strip()
+        if not df.empty and 'Username' in df.columns:
+            df['Username'] = df['Username'].astype(str).str.strip()
+        return df
     except Exception:
         return pd.DataFrame(columns=["Username", "Password", "Role", "Verified"])
 
@@ -180,9 +205,9 @@ def delete_user_gsheet(email_to_delete):
 @st.dialog("Sign Up")
 def signup_dialog():
     st.write("Daftar akun baru untuk mengakses Product Library.")
-    email_input = st.text_input("Email (@traknus.co.id)")
-    password_input = st.text_input("Buat Password", type="password")
-    confirm_password = st.text_input("Konfirmasi Password", type="password")
+    email_input = st.text_input("Email (@traknus.co.id)").strip()
+    password_input = st.text_input("Buat Password", type="password").strip()
+    confirm_password = st.text_input("Konfirmasi Password", type="password").strip()
     
     if st.button("Daftar Sekarang"):
         if not email_input or not password_input:
@@ -201,6 +226,13 @@ def signup_dialog():
             else:
                 st.warning(msg)
 
+def convert_df_to_excel(df):
+    output = io.BytesIO()
+    # Menggunakan engine xlsxwriter agar lebih cepat dan ringan
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Sheet1')
+    return output.getvalue()
+
 # --- PAGES ---
 
 def show_product_analytics_page():
@@ -209,6 +241,17 @@ def show_product_analytics_page():
     history_df = load_gsheet_data("DownloadHistory")
     if history_df.empty:
         st.info("Belum ada data aktivitas.")
+        return
+
+    # LOGIKA PRIVASI DATA (USER-SPECIFIC)
+    # Jika role bukan Admin, filter data agar hanya menampilkan milik username yang sedang login
+    if st.session_state.role != "Admin":
+        # Menggunakan str.lower() untuk memastikan perbandingan tidak sensitif huruf kapital
+        history_df = history_df[history_df['Username'].str.lower() == st.session_state.username.lower()]
+
+    # 2. Cek kembali apakah data ada setelah difilter
+    if history_df.empty:
+        st.info("Anda belum memiliki riwayat aktivitas produk untuk dianalisis.")
         return
 
     history_df['Timestamp'] = pd.to_datetime(history_df['Timestamp'])
@@ -263,9 +306,9 @@ def show_product_analytics_page():
         with m4: custom_metric("Top Brand (All)", b_name, f"{max_b} acts")
         with m5: custom_metric("Top Model (All)", m_name, f"{max_m} acts")
 
-        # --- VISUALISASI (Berdasarkan Filter Aktivitas) ---
-        st.write(f"### 📈 Charts: {selected_activity}")
-        
+       # --- VISUALISASI (Berdasarkan Filter Aktivitas) ---
+        st.write(f"### 📈 Charts: {selected_activity} Per Brand & Model")
+
         # Filter data khusus untuk grafik
         if selected_activity != "All Activities":
             df_chart = df_filtered[df_filtered['RecordType'] == selected_activity]
@@ -275,57 +318,178 @@ def show_product_analytics_page():
         if not df_chart.empty:
             chart_brand = df_chart['Brand'].str.upper().value_counts().reset_index()
             chart_model = df_chart['Model'].value_counts().reset_index()
-            
-            c1, c2 = st.columns(2)
+    
             color_map = {'GAUSIUM': '#000000', 'FIORENTINI': '#0078D4'}
 
-            with c1:
-                fig_b = px.bar(chart_brand, x='Brand', y='count', color='Brand', color_discrete_map=color_map, text='Brand')
-                fig_b.update_layout(height=450, showlegend=False, yaxis_title="Total Actions")
-                fig_b.update_traces(textposition='inside', texttemplate='%{text}<br>%{y}', textfont=dict(size=16, color='white', family='Arial Black'))
-                st.plotly_chart(fig_b, use_container_width=True)
+            plotly_config = {
+                'displaylogo': False,
+                'modeBarButtonsToRemove': [
+                    'zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 
+                    'zoomOut2d', 'autoScale2d', 'resetScale2d', 'hoverClosestCartesian', 
+                    'hoverCompareCartesian', 'toggleSpikelines'
+                ],
+                'displayModeBar': True
+            }
 
-            with c2:
-                fig_m = px.bar(chart_model.head(10), x='count', y='Model', orientation='h', text='Model', color_discrete_sequence=['#2ECC71'])
-                fig_m.update_layout(height=450, yaxis=dict(showticklabels=False))
-                fig_m.update_traces(textposition='inside', texttemplate=' %{text} (%{x})', textfont=dict(size=14, color='white', family='Arial Black'))
-                st.plotly_chart(fig_m, use_container_width=True)
+            # --- CHART 1: BRAND (POSISI ATAS) ---
+            st.subheader("Total Activities by Brand")
+            max_b = chart_brand['count'].max()
+
+            fig_b = px.bar(chart_brand, x='Brand', y='count', color='Brand', color_discrete_map=color_map, text='count')
+
+            fig_b.update_layout(
+                height=500, # Tinggi disesuaikan agar tidak terlalu memakan ruang saat vertikal
+                showlegend=False, 
+                yaxis_title="Total Activities",
+                yaxis=dict(range=[0, max_b * 1.2], tickfont=dict(size=14)), 
+                xaxis=dict(tickfont=dict(size=18)), 
+                margin=dict(t=50, b=50) 
+            )
+
+            fig_b.update_traces(
+                textposition='outside', 
+                textfont=dict(size=22, family='Arial Black'), 
+                cliponaxis=False
+            )
+
+            st.plotly_chart(fig_b, use_container_width=True, config=plotly_config)
+
+            # Pemisah visual antara chart atas dan bawah
+            st.divider()
+
+            # --- CHART 2: MODEL (POSISI BAWAH) ---
+            st.subheader("Top 10 Models")
+            # Untuk chart horizontal, kita gunakan max_x untuk padding kanan
+            max_m = chart_model.head(10)['count'].max()
+
+            fig_m = px.bar(chart_model.head(10), x='count', y='Model', orientation='h', text='count', color_discrete_sequence=['#2ECC71'])
+
+            fig_m.update_layout(
+                height=600, 
+                yaxis=dict(showticklabels=True, tickfont=dict(size=16), categoryorder='total ascending'), 
+                xaxis=dict(range=[0, max_m * 1.3], tickfont=dict(size=14)), 
+                xaxis_title="Total Activities",
+                margin=dict(t=50, b=50)
+            )
+
+            fig_m.update_traces(
+                textposition='outside', 
+                textfont=dict(size=20, family='Arial Black'),
+                cliponaxis=False
+            )
+
+            st.plotly_chart(fig_m, use_container_width=True, config=plotly_config)
+
         else:
             st.warning(f"Tidak ada data untuk kategori {selected_activity}")
 
-    # Tabel Detail
+    # --- TABEL DETAIL & EXPORT ---
     st.divider()
     st.subheader("📄 Activity Logs")
-    st.dataframe(df_filtered[["Timestamp", "Username", "Brand", "Model", "RecordType"]].iloc[::-1], use_container_width=True)
+    
+    # Menyiapkan DataFrame untuk tampilan dan export
+    df_display = df_filtered[["Timestamp", "Username", "Brand", "Model", "RecordType"]].iloc[::-1]
+    
+    st.dataframe(df_display, use_container_width=True)
+    
+    # --- TOMBOL EXPORT BERDAMPINGAN ---
+    col_ex1, col_ex2, _ = st.columns([1, 1, 3])
+    
+    with col_ex1:
+        # Tombol Export CSV
+        csv = df_display.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Export to CSV",
+            data=csv,
+            file_name='product_activity_logs.csv',
+            mime='text/csv',
+        )
+
+    with col_ex2:
+        # Tombol Export Excel
+        excel_data = convert_df_to_excel(df_display)
+        st.download_button(
+            label="📊 Export to Excel",
+            data=excel_data,
+            file_name='product_activity_logs.xlsx',
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
 
 # --- HISTORY LOGIC ---
-def log_login(username, role):
-    wib_now = datetime.now() + timedelta(hours=7) 
-    now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
-    new_entry = pd.DataFrame([[username, role, now_str]], columns=["Username", "Role", "Timestamp"])
-    if not os.path.isfile(HISTORY_FILE):
-        new_entry.to_csv(HISTORY_FILE, index=False)
-    else:
-        new_entry.to_csv(HISTORY_FILE, mode='a', header=False, index=False)
+def log_login(username, role, status="Success"):
+    try:
+        # 1. Ambil data lama dari sheet LoginHistory
+        history_df = load_gsheet_data("LoginHistory")
+        
+        # 2. Ambil waktu sekarang (WIB)
+        wib_now = datetime.now() + timedelta(hours=7) 
+        now_str = wib_now.strftime("%Y-%m-%d %H:%M:%S")
+        
+        # 3. Buat baris baru dalam bentuk DataFrame
+        # Sesuaikan urutan kolom: Username, Role, Timestamp, Status
+        new_entry = pd.DataFrame([[
+            username, 
+            role, 
+            now_str, 
+            status
+        ]], columns=["Username", "Role", "Timestamp", "Status"])
+        
+        # 4. Gabungkan data lama dan baru
+        if not history_df.empty:
+            updated_df = pd.concat([history_df, new_entry], ignore_index=True)
+        else:
+            updated_df = new_entry
+            
+        # 5. Update ke Google Sheets
+        conn.update(worksheet="LoginHistory", data=updated_df)
+        
+    except Exception as e:
+        st.error(f"Gagal mencatat log login ke GSheet: {e}")
 
 def show_history_page():
     st.title("📜 Login History")
-    if os.path.exists(HISTORY_FILE):
-        history_df = pd.read_csv(HISTORY_FILE)
-        st.dataframe(history_df.iloc[::-1], use_container_width=True)
-        if st.button("Clear History"):
-            os.remove(HISTORY_FILE)
-            st.rerun()
+    
+    # Ambil data dari GSheet
+    history_df = load_gsheet_data("LoginHistory")
+    
+    if not history_df.empty:
+        # Tampilkan Tabel (Data terbaru di atas)
+        df_display = history_df.iloc[::-1]
+        st.dataframe(df_display, use_container_width=True)
+        
+        # Baris Tombol Aksi
+        col_ex1, col_ex2, col_clear = st.columns([1, 1, 2])
+        
+        with col_ex1:
+            csv_data = df_display.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Export CSV", csv_data, "login_logs.csv", "text/csv")
+            
+        with col_ex2:
+            excel_data = convert_df_to_excel(df_display)
+            st.download_button("📊 Export Excel", excel_data, "login_logs.xlsx")
+
+        # LOGIKA TOMBOL CLEAR
+        with col_clear:
+            if st.session_state.role == "Admin":
+                # Gunakan popover atau warning agar tidak tidak sengaja terhapus
+                if st.button("🗑️ Clear All History", type="secondary", help="Hapus semua data di GSheet"):
+                    status = clear_gsheet_content("LoginHistory")
+                    if status:
+                        st.success("History berhasil dibersihkan!")
+                        st.rerun()
+                    else:
+                        st.info("History sudah kosong (hanya tersisa header).")
     else:
-        st.info("No login history available.")
+        st.info("No login history available in Google Sheets.")
 
 def login_screen():
     st.markdown("<h2 style='text-align: center;'>Product Library</h2>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         with st.form("login_form"):
-            username = st.text_input("Username / Email")
-            password = st.text_input("Password", type="password")
+            # Tambahkan .strip() untuk membersihkan spasi tak sengaja
+            username = st.text_input("Username / Email").strip()
+            password = st.text_input("Password", type="password").strip()
             submit = st.form_submit_button("Login")
             
             if submit:
@@ -340,7 +504,9 @@ def login_screen():
                 # Cek Database Google Sheets
                 else:
                     users_df = load_registered_users()
-                    match = users_df[(users_df['Username'] == username) & (users_df['Password'] == str(password))]
+                    # Perbandingan dilakukan dengan memastikan kedua belah pihak adalah string
+                    match = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
+                    
                     if not match.empty:
                         st.session_state.logged_in = True
                         st.session_state.username = username
@@ -533,7 +699,9 @@ def handle_share_logging(username, brand, model, record_type):
 def show_detail(row, full_df):
     brand = row['Brand'] if not pd.isna(row['Brand']) else "-"
     model = row['Model Variations'] if not pd.isna(row['Model Variations']) else "-"
-    aisle_w = row.get('Aisle Width (cm)', '-') 
+    aisle_w = row.get('Aisle Width (cm)', '-')
+    aisle_cat = clean_list_string(row.get('Aisle Category'))
+    env_val = clean_list_string(row.get('Environment'))
     slope_val = row.get('Max_Slope', '-') 
     max_area = row.get('Targeted Cleaning_Area', '-')
     floor_type = clean_list_string(row.get('Floor_Type_List'))
@@ -558,10 +726,11 @@ def show_detail(row, full_df):
     with col1:
         st.subheader("General Specifications")
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
-        st.write(f"**Aisle Width:** :orange[**{aisle_w} cm**]") 
-        st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
-        st.write(f"**Max Target Cleaning Area:** :green[**{max_area} m²/5h**]")
-        st.write(f"**Floor Type:** {floor_type}")
+        st.write(f"**Environment:** {env_val}")
+        st.write(f"**Floor Type:** {floor_type}") 
+        st.write(f"**Max Target Cleaning Area:** {max_area} m²/5h")
+        st.write(f"**Max. Slope:** {slope_val}")
+        st.write(f"**Aisle Category:** {aisle_cat}")
         st.write(f"**Obstacle:** {obstacles}")
         st.write(f"**Waste Type:** {waste_type}")
         
@@ -569,6 +738,7 @@ def show_detail(row, full_df):
         st.subheader("Dimensions & Weight")
         st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg")
         st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
+        st.write(f"**Aisle Width:** {aisle_w} cm")
 
     st.markdown("---")
     
@@ -636,249 +806,205 @@ def filter_analytics_page():
         # Gunakan fungsi load_gsheet_data yang sudah ada
         data = load_gsheet_data("FilterLogs")
 
-        # --- LOGIKA FILTER BERDASARKAN ROLE PENGLIHAT ---
+        # --- 1. LOGIKA PRIVASI DATA (USER-SPECIFIC) ---
         if st.session_state.role != "Admin":
-            # Jika yang melihat adalah User biasa, hapus semua jejak username 'admin'
-            data = data[data['Username'].str.lower() != 'admin']
-        # Jika yang melihat adalah Admin, baris di atas dilewati (data tampil semua)
-
+            # User hanya melihat data miliknya sendiri (Case Insensitive)
+            data = data[data['Username'].str.lower() == st.session_state.username.lower()]
+        
         if data.empty:
-            st.warning("No Data.")
+            st.info("Belum ada data aktivitas filter untuk akun Anda.")
             return
 
-        # --- Visualisasi 1: Environment Preference (TAMBAHAN BARU - Full Width) ---
+        plotly_config = {
+            'displaylogo': False,
+            'modeBarButtonsToRemove': [
+                'zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 
+                'zoomOut2d', 'autoScale2d', 'resetScale2d', 'hoverClosestCartesian', 
+                'hoverCompareCartesian', 'toggleSpikelines'
+            ],
+            'displayModeBar': True
+        }
+
+        # --- DATA PREPARATION UNTUK NUMERIC FILTERS (AREA & SLOPE) ---
+        # Karena Area_Filter & Slope_Filter ada di tiap baris log, kita ambil 1 data per sesi pencarian
+        unique_searches = data.drop_duplicates(subset=['Timestamp', 'Username']).copy()
+
+        # --- Visualisasi 1: Target Cleaning Area Clustering (Dari Area_Filter) ---
+        st.divider()
+        st.subheader("Target Cleaning Area Demand (m²/5h)")
+        
+        # Konversi ke numerik dan ambil yang di atas 0 (asumsi 0 = tidak diisi/All)
+        unique_searches['Area_Num'] = pd.to_numeric(unique_searches['Area_Filter'], errors='coerce').fillna(0)
+        area_data = unique_searches[unique_searches['Area_Num'] > 0].copy()
+
+        if not area_data.empty:
+            bins_area = [-float('inf'), 22500, 50000, 100000, float('inf')]
+            labels_area = ['0-22.500', '22.501-50.000', '50.001-100.000', '100.001-Seterusnya']
+            
+            area_data['Cluster'] = pd.cut(area_data['Area_Num'], bins=bins_area, labels=labels_area)
+            area_counts = area_data['Cluster'].value_counts().reindex(labels_area, fill_value=0).reset_index()
+            area_counts.columns = ['Range', 'Count']
+            max_area = area_counts['Count'].max()
+
+            fig_area = px.bar(area_counts, x='Range', y='Count', text='Count', color_discrete_sequence=['#C0392B'])
+            fig_area.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
+            fig_area.update_layout(
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_area * 1.3 if max_area > 0 else 10], tickfont=dict(size=14)),
+                xaxis=dict(tickfont=dict(size=16)), height=500, margin=dict(l=20, r=20, t=80, b=40)
+            )
+            st.plotly_chart(fig_area, use_container_width=True, config=plotly_config)
+        else:
+            st.info("Belum ada data numerik untuk Target Cleaning Area.")
+
+        # --- Visualisasi 2: Max Slope Clustering (Dari Slope_Filter) ---
+        st.divider()
+        st.subheader("Max Slope Preference (%)")
+        
+        unique_searches['Slope_Num'] = pd.to_numeric(unique_searches['Slope_Filter'], errors='coerce').fillna(0)
+        slope_data = unique_searches[unique_searches['Slope_Num'] > 0].copy()
+
+        if not slope_data.empty:
+            bins_slope = [-float('inf'), 5, 10, float('inf')]
+            labels_slope = ['0-5', '6-10', '11 - Seterusnya']
+            
+            slope_data['Cluster'] = pd.cut(slope_data['Slope_Num'], bins=bins_slope, labels=labels_slope)
+            slope_counts = slope_data['Cluster'].value_counts().reindex(labels_slope, fill_value=0).reset_index()
+            slope_counts.columns = ['Range', 'Count']
+            max_slope = slope_counts['Count'].max()
+
+            fig_slope = px.bar(slope_counts, x='Range', y='Count', text='Count', color_discrete_sequence=['#2980B9'])
+            fig_slope.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
+            fig_slope.update_layout(
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_slope * 1.3 if max_slope > 0 else 10], tickfont=dict(size=14)),
+                xaxis=dict(tickfont=dict(size=18)), height=500, margin=dict(l=20, r=20, t=80, b=40)
+            )
+            st.plotly_chart(fig_slope, use_container_width=True, config=plotly_config)
+        else:
+            st.info("Belum ada data numerik untuk Max Slope.")
+
+        # --- Visualisasi 3: Environment Preference ---
         st.divider()
         st.subheader("Environment Preference")
         env_df = data[data['Category'] == 'Environment']
         if not env_df.empty:
             env_counts = env_df['Value'].value_counts().reset_index()
             env_counts.columns = ['Environment', 'Count']
-            # Gabungkan Nama Lingkungan + Angka
-            env_counts['Full_Label'] = env_counts['Environment'] + "<br>" + env_counts['Count'].astype(str)
-
-            fig_env = px.bar(
-                env_counts, 
-                x='Environment', 
-                y='Count',
-                text='Full_Label',
-                color_discrete_sequence=['#E67E22'] # Warna Oranye Gelap agar kontras dengan teks putih
-            )
-
-            fig_env.update_traces(
-                textposition='inside',
-                insidetextanchor='middle',
-                textfont=dict(size=16, color='white', family='Arial Black')
-            )
-
+            max_val = env_counts['Count'].max()
+            fig_env = px.bar(env_counts, x='Environment', y='Count', text='Count', color_discrete_sequence=['#E67E22'])
+            fig_env.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_env.update_layout(
-                xaxis_title="",
-                yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
-                height=450,
-                margin=dict(l=20, r=20, t=20, b=20)
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_val * 1.3], tickfont=dict(size=14)),
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=500, margin=dict(l=20, r=20, t=80, b=40)
             )
-            st.plotly_chart(fig_env, use_container_width=True)
-        else:
-            st.info("Belum ada data untuk Environment")
+            st.plotly_chart(fig_env, use_container_width=True, config=plotly_config)
 
-        
-        # --- Visualisasi 2: Top Floor Type yang Dicari ---
+        # --- Visualisasi 4: Most Searched Floor Types ---
         st.subheader("Most Searched Floor Types")
         floor_data = data[data['Category'] == 'Floor Type']
-
         if not floor_data.empty:
             floor_counts = floor_data['Value'].value_counts().reset_index()
             floor_counts.columns = ['Floor Type', 'Count']
-
-            # 1. GABUNGKAN Label Kategori dan Angka agar bisa masuk ke dalam batang
-            # Contoh hasil: "Epoxy (2)"
-            floor_counts['Full_Label'] = floor_counts['Floor Type'] + "<br>" + floor_counts['Count'].astype(str)
-
-           
-            fig_floor = px.bar(
-                floor_counts, 
-                x='Floor Type', 
-                y='Count',
-                text='Full_Label', 
-                color_discrete_sequence=['#004d1a'] # Warna Hijau Tua Solid
-            )
-
-            fig_floor.update_traces(
-                textposition='inside',      # Paksa masuk ke dalam batang
-                insidetextanchor='middle',  # Posisi di tengah
-                textfont=dict(
-                    size=14, 
-                    color='white', 
-                    family='Arial Black'
-                )
-            )
-
+            max_val = floor_counts['Count'].max()
+            fig_floor = px.bar(floor_counts, x='Floor Type', y='Count', text='Count', color_discrete_sequence=['#004d1a'])
+            fig_floor.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_floor.update_layout(
-                xaxis_title="",             # Hilangkan judul sumbu X karena label sudah di dalam
-                yaxis_title="Jumlah Pencarian",
-                # Sembunyikan label sumbu X (All, Epoxy, dll) agar tidak dobel
-                xaxis=dict(showticklabels=False), 
-                font=dict(size=14),
-                height=500,
-                margin=dict(l=20, r=20, t=20, b=20),
-                coloraxis_showscale=False 
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_val * 1.3], tickfont=dict(size=14)),
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=550, margin=dict(l=20, r=20, t=80, b=40)
             )
+            st.plotly_chart(fig_floor, use_container_width=True, config=plotly_config)
 
-            st.plotly_chart(fig_floor, use_container_width=True)
-        else:
-            st.info("No Floor Type data.")
-
-        # --- Visualisasi 3: Product Type Preference  ---
+        # --- Visualisasi 5: Product Type Preference ---
         st.divider()
         st.subheader("Product Type Preference")
         pt_df = data[data['Category'] == 'Product Type']
-        
         if not pt_df.empty:
             pt_counts = pt_df['Value'].value_counts().reset_index()
             pt_counts.columns = ['Product Type', 'Count']
-            
-            # Label gabungan untuk tampilan di dalam batang
-            pt_counts['Full_Label'] = pt_counts['Product Type'] + "<br>" + pt_counts['Count'].astype(str)
-
-            fig_pt = px.bar(
-                pt_counts, 
-                x='Product Type', 
-                y='Count',
-                text='Full_Label',
-                color_discrete_sequence=['#16A085'] # Warna Teal/Emerald yang profesional
-            )
-
-            fig_pt.update_traces(
-                textposition='inside',
-                insidetextanchor='middle',
-                textfont=dict(size=16, color='white', family='Arial Black')
-            )
-
+            max_val = pt_counts['Count'].max()
+            fig_pt = px.bar(pt_counts, x='Product Type', y='Count', text='Count', color_discrete_sequence=['#16A085'])
+            fig_pt.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_pt.update_layout(
-                xaxis_title="",
-                yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=False), # Label sudah ada di dalam batang
-                height=450,
-                margin=dict(l=20, r=20, t=20, b=20)
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_val * 1.3], tickfont=dict(size=14)),
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=500, margin=dict(l=20, r=20, t=80, b=40)
             )
-            st.plotly_chart(fig_pt, use_container_width=True)
-        else:
-            st.info("Belum ada data untuk Product Type")
+            st.plotly_chart(fig_pt, use_container_width=True, config=plotly_config)
 
-        
-        # --- Visualisasi 4: Obstacle Preference (Full Width) ---
-        st.divider() # Garis pemisah agar rapi
+        # --- Visualisasi 6: Obstacle Preference ---
+        st.divider() 
         st.subheader("Obstacle Preference")
         obs_df = data[data['Category'] == 'Obstacle']
-        
         if not obs_df.empty:
             obs_counts = obs_df['Value'].value_counts().reset_index()
-            obs_counts.columns = ['Value', 'count']
-            
-            fig_pie = px.pie(
-                obs_counts, 
-                values='count', 
-                names='Value', 
-                hole=0.3,
-                color_discrete_sequence=px.colors.sequential.RdBu
+            obs_counts.columns = ['Obstacle', 'Count']
+            max_val = obs_counts['Count'].max()
+            fig_obs = px.bar(obs_counts, x='Obstacle', y='Count', text='Count', color_discrete_sequence=['#34495E'])
+            fig_obs.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
+            fig_obs.update_layout(
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_val * 1.3], tickfont=dict(size=14)),
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=500, margin=dict(l=20, r=20, t=80, b=40)
             )
-            
-            fig_pie.update_traces(
-                textinfo='percent',
-                textposition='inside',
-                textfont_size=20,
-                textfont_color='white'
-            )
+            st.plotly_chart(fig_obs, use_container_width=True, config=plotly_config)
 
-            fig_pie.update_layout(
-                height=450,
-                legend=dict(orientation="h", y=-0.1, x=0.5, xanchor="center", font=dict(size=14)),
-                margin=dict(t=20, b=100)
-            )
-            st.plotly_chart(fig_pie, use_container_width=True)
-        else:
-            st.info("No data for Obstacles")
-
-        # --- Visualisasi 5: Waste Type Preference (TAMBAHAN BARU - Full Width) ---
+        # --- Visualisasi 7: Waste Type Preference ---
         st.divider()
         st.subheader("Waste Type Preference")
         waste_df = data[data['Category'] == 'Waste Type']
-        
         if not waste_df.empty:
             waste_counts = waste_df['Value'].value_counts().reset_index()
             waste_counts.columns = ['Waste Type', 'Count']
-            
-            # Membuat label gabungan: Jenis Sampah + Angka
-            waste_counts['Full_Label'] = waste_counts['Waste Type'] + "<br>" + waste_counts['Count'].astype(str)
-
-            fig_waste = px.bar(
-                waste_counts, 
-                x='Waste Type', 
-                y='Count',
-                text='Full_Label',
-                color_discrete_sequence=['#8E44AD'] # Warna Ungu Solid yang elegan dan kontras
-            )
-
-            fig_waste.update_traces(
-                textposition='inside',
-                insidetextanchor='middle',
-                textfont=dict(size=16, color='white', family='Arial Black')
-            )
-
+            max_val = waste_counts['Count'].max()
+            fig_waste = px.bar(waste_counts, x='Waste Type', y='Count', text='Count', color_discrete_sequence=['#8E44AD'])
+            fig_waste.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_waste.update_layout(
-                xaxis_title="",
-                yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
-                height=450,
-                margin=dict(l=20, r=20, t=20, b=20)
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_val * 1.3], tickfont=dict(size=14)),
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=500, margin=dict(l=20, r=20, t=80, b=40)
             )
-            st.plotly_chart(fig_waste, use_container_width=True)
-        else:
-            st.info("Belum ada data untuk Waste Type")
+            st.plotly_chart(fig_waste, use_container_width=True, config=plotly_config)
 
-        # --- Visualisasi 6: Aisle Category Demand (Full Width & Di Bawah) ---
+        # --- Visualisasi 8: Aisle Category Demand ---
         st.divider()
         st.subheader("Aisle Category Demand")
         aisle_df = data[data['Category'] == 'Aisle Category']
-        
         if not aisle_df.empty:
             aisle_counts = aisle_df['Value'].value_counts().reset_index()
             aisle_counts.columns = ['Aisle', 'Count']
-            
-            # Membuat label gabungan: Nama Kategori + Jumlah
-            aisle_counts['Full_Label'] = aisle_counts['Aisle'] + " (" + aisle_counts['Count'].astype(str) + ")"
-
-            fig_aisle = px.bar(
-                aisle_counts, 
-                x='Aisle', 
-                y='Count',
-                text='Full_Label', # Label lengkap muncul di batang
-                color_discrete_sequence=['#0078D4']
-            )
-
-            fig_aisle.update_traces(
-                textposition='inside',
-                insidetextanchor='middle',
-                textfont=dict(size=16, color='white', family='Arial Black')
-            )
-
+            max_val = aisle_counts['Count'].max()
+            fig_aisle = px.bar(aisle_counts, x='Aisle', y='Count', text='Count', color_discrete_sequence=['#0078D4'])
+            fig_aisle.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_aisle.update_layout(
-                xaxis_title="Kategori Lorong",
-                yaxis_title="Jumlah Pencarian",
-                xaxis=dict(showticklabels=False), # Sembunyikan label bawah karena sudah ada di dalam
-                font=dict(size=14),
-                height=400, # Tinggi sedikit dikurangi agar tidak terlalu memanjang ke bawah
-                margin=dict(l=20, r=20, t=20, b=20)
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_val * 1.3], tickfont=dict(size=14)),
+                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
+                height=450, margin=dict(l=20, r=20, t=80, b=40)
             )
-            st.plotly_chart(fig_aisle, use_container_width=True)
-        else:
-            st.info("No data for Aisle Category")
-
+            st.plotly_chart(fig_aisle, use_container_width=True, config=plotly_config)
         
-        # --- Tabel Data Mentah ---
-        with st.expander("View Data Details"):
-            st.dataframe(data.iloc[::-1], use_container_width=True)
-
+        # --- Tabel Data Mentah dengan Tombol Export ---
+        st.divider()
+        st.subheader("📋 Detail Data Logs")
+        df_display = data.iloc[::-1]
+        with st.expander("View & Export Data Details"):
+            st.dataframe(df_display, use_container_width=True)
+            col_ex1, col_ex2, _ = st.columns([1, 1, 3])
+            with col_ex1:
+                csv_data = df_display.to_csv(index=False).encode('utf-8')
+                st.download_button(label="📥 Export to CSV", data=csv_data, file_name='filter_logs.csv', mime='text/csv')
+            with col_ex2:
+                excel_data = convert_df_to_excel(df_display)
+                st.download_button(label="📊 Export to Excel", data=excel_data, file_name='filter_logs.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                
     except Exception as e:
         st.error(f"Failed to load Dashboard: {e}")
        
