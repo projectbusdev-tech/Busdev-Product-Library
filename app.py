@@ -802,12 +802,13 @@ def filter_analytics_page():
         # Gunakan fungsi load_gsheet_data yang sudah ada
         data = load_gsheet_data("FilterLogs")
 
-        # --- LOGIKA FILTER BERDASARKAN ROLE PENGLIHAT ---
+        # --- 1. LOGIKA PRIVASI DATA (USER-SPECIFIC) ---
         if st.session_state.role != "Admin":
-            data = data[data['Username'].str.lower() != 'admin']
-
+            # User hanya melihat data miliknya sendiri (Case Insensitive)
+            data = data[data['Username'].str.lower() == st.session_state.username.lower()]
+        
         if data.empty:
-            st.warning("No Data.")
+            st.info("Belum ada data aktivitas filter untuk akun Anda.")
             return
 
         plotly_config = {
