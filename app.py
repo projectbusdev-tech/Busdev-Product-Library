@@ -793,25 +793,82 @@ def filter_analytics_page():
 
         # --- LOGIKA FILTER BERDASARKAN ROLE PENGLIHAT ---
         if st.session_state.role != "Admin":
-            # Jika yang melihat adalah User biasa, hapus semua jejak username 'admin'
             data = data[data['Username'].str.lower() != 'admin']
-        # Jika yang melihat adalah Admin, baris di atas dilewati (data tampil semua)
 
         if data.empty:
             st.warning("No Data.")
             return
 
         plotly_config = {
-                'displaylogo': False,
-                'modeBarButtonsToRemove': [
-                    'zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 
-                    'zoomOut2d', 'autoScale2d', 'resetScale2d', 'hoverClosestCartesian', 
-                    'hoverCompareCartesian', 'toggleSpikelines'
-                ],
-                'displayModeBar': True
-            }
+            'displaylogo': False,
+            'modeBarButtonsToRemove': [
+                'zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 
+                'zoomOut2d', 'autoScale2d', 'resetScale2d', 'hoverClosestCartesian', 
+                'hoverCompareCartesian', 'toggleSpikelines'
+            ],
+            'displayModeBar': True
+        }
 
-          # --- Visualisasi 1: Environment Preference ---
+        # --- DATA PREPARATION UNTUK NUMERIC FILTERS (AREA & SLOPE) ---
+        # Karena Area_Filter & Slope_Filter ada di tiap baris log, kita ambil 1 data per sesi pencarian
+        unique_searches = data.drop_duplicates(subset=['Timestamp', 'Username']).copy()
+
+        # --- Visualisasi 1: Target Cleaning Area Clustering (Dari Area_Filter) ---
+        st.divider()
+        st.subheader("Target Cleaning Area Demand (m²/5h)")
+        
+        # Konversi ke numerik dan ambil yang di atas 0 (asumsi 0 = tidak diisi/All)
+        unique_searches['Area_Num'] = pd.to_numeric(unique_searches['Area_Filter'], errors='coerce').fillna(0)
+        area_data = unique_searches[unique_searches['Area_Num'] > 0].copy()
+
+        if not area_data.empty:
+            bins_area = [-float('inf'), 22500, 50000, 100000, float('inf')]
+            labels_area = ['0-22.500', '22.501-50.000', '50.001-100.000', '100.001-Seterusnya']
+            
+            area_data['Cluster'] = pd.cut(area_data['Area_Num'], bins=bins_area, labels=labels_area)
+            area_counts = area_data['Cluster'].value_counts().reindex(labels_area, fill_value=0).reset_index()
+            area_counts.columns = ['Range', 'Count']
+            max_area = area_counts['Count'].max()
+
+            fig_area = px.bar(area_counts, x='Range', y='Count', text='Count', color_discrete_sequence=['#C0392B'])
+            fig_area.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
+            fig_area.update_layout(
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_area * 1.3 if max_area > 0 else 10], tickfont=dict(size=14)),
+                xaxis=dict(tickfont=dict(size=16)), height=500, margin=dict(l=20, r=20, t=80, b=40)
+            )
+            st.plotly_chart(fig_area, use_container_width=True, config=plotly_config)
+        else:
+            st.info("Belum ada data numerik untuk Target Cleaning Area.")
+
+        # --- Visualisasi 2: Max Slope Clustering (Dari Slope_Filter) ---
+        st.divider()
+        st.subheader("Max Slope Preference (%)")
+        
+        unique_searches['Slope_Num'] = pd.to_numeric(unique_searches['Slope_Filter'], errors='coerce').fillna(0)
+        slope_data = unique_searches[unique_searches['Slope_Num'] > 0].copy()
+
+        if not slope_data.empty:
+            bins_slope = [-float('inf'), 5, 10, float('inf')]
+            labels_slope = ['0-5', '6-10', '11 - Seterusnya']
+            
+            slope_data['Cluster'] = pd.cut(slope_data['Slope_Num'], bins=bins_slope, labels=labels_slope)
+            slope_counts = slope_data['Cluster'].value_counts().reindex(labels_slope, fill_value=0).reset_index()
+            slope_counts.columns = ['Range', 'Count']
+            max_slope = slope_counts['Count'].max()
+
+            fig_slope = px.bar(slope_counts, x='Range', y='Count', text='Count', color_discrete_sequence=['#2980B9'])
+            fig_slope.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
+            fig_slope.update_layout(
+                xaxis_title="", yaxis_title="Jumlah Pencarian",
+                yaxis=dict(range=[0, max_slope * 1.3 if max_slope > 0 else 10], tickfont=dict(size=14)),
+                xaxis=dict(tickfont=dict(size=18)), height=500, margin=dict(l=20, r=20, t=80, b=40)
+            )
+            st.plotly_chart(fig_slope, use_container_width=True, config=plotly_config)
+        else:
+            st.info("Belum ada data numerik untuk Max Slope.")
+
+        # --- Visualisasi 3: Environment Preference ---
         st.divider()
         st.subheader("Environment Preference")
         env_df = data[data['Category'] == 'Environment']
@@ -819,7 +876,6 @@ def filter_analytics_page():
             env_counts = env_df['Value'].value_counts().reset_index()
             env_counts.columns = ['Environment', 'Count']
             max_val = env_counts['Count'].max()
-
             fig_env = px.bar(env_counts, x='Environment', y='Count', text='Count', color_discrete_sequence=['#E67E22'])
             fig_env.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_env.update_layout(
@@ -830,14 +886,13 @@ def filter_analytics_page():
             )
             st.plotly_chart(fig_env, use_container_width=True, config=plotly_config)
 
-        # --- Visualisasi 2: Most Searched Floor Types ---
+        # --- Visualisasi 4: Most Searched Floor Types ---
         st.subheader("Most Searched Floor Types")
         floor_data = data[data['Category'] == 'Floor Type']
         if not floor_data.empty:
             floor_counts = floor_data['Value'].value_counts().reset_index()
             floor_counts.columns = ['Floor Type', 'Count']
             max_val = floor_counts['Count'].max()
-
             fig_floor = px.bar(floor_counts, x='Floor Type', y='Count', text='Count', color_discrete_sequence=['#004d1a'])
             fig_floor.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_floor.update_layout(
@@ -848,7 +903,7 @@ def filter_analytics_page():
             )
             st.plotly_chart(fig_floor, use_container_width=True, config=plotly_config)
 
-        # --- Visualisasi 3: Product Type Preference ---
+        # --- Visualisasi 5: Product Type Preference ---
         st.divider()
         st.subheader("Product Type Preference")
         pt_df = data[data['Category'] == 'Product Type']
@@ -856,7 +911,6 @@ def filter_analytics_page():
             pt_counts = pt_df['Value'].value_counts().reset_index()
             pt_counts.columns = ['Product Type', 'Count']
             max_val = pt_counts['Count'].max()
-
             fig_pt = px.bar(pt_counts, x='Product Type', y='Count', text='Count', color_discrete_sequence=['#16A085'])
             fig_pt.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_pt.update_layout(
@@ -867,7 +921,7 @@ def filter_analytics_page():
             )
             st.plotly_chart(fig_pt, use_container_width=True, config=plotly_config)
 
-        # --- Visualisasi 4: Obstacle Preference ---
+        # --- Visualisasi 6: Obstacle Preference ---
         st.divider() 
         st.subheader("Obstacle Preference")
         obs_df = data[data['Category'] == 'Obstacle']
@@ -875,7 +929,6 @@ def filter_analytics_page():
             obs_counts = obs_df['Value'].value_counts().reset_index()
             obs_counts.columns = ['Obstacle', 'Count']
             max_val = obs_counts['Count'].max()
-
             fig_obs = px.bar(obs_counts, x='Obstacle', y='Count', text='Count', color_discrete_sequence=['#34495E'])
             fig_obs.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_obs.update_layout(
@@ -886,7 +939,7 @@ def filter_analytics_page():
             )
             st.plotly_chart(fig_obs, use_container_width=True, config=plotly_config)
 
-        # --- Visualisasi 5: Waste Type Preference ---
+        # --- Visualisasi 7: Waste Type Preference ---
         st.divider()
         st.subheader("Waste Type Preference")
         waste_df = data[data['Category'] == 'Waste Type']
@@ -894,7 +947,6 @@ def filter_analytics_page():
             waste_counts = waste_df['Value'].value_counts().reset_index()
             waste_counts.columns = ['Waste Type', 'Count']
             max_val = waste_counts['Count'].max()
-
             fig_waste = px.bar(waste_counts, x='Waste Type', y='Count', text='Count', color_discrete_sequence=['#8E44AD'])
             fig_waste.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_waste.update_layout(
@@ -905,7 +957,7 @@ def filter_analytics_page():
             )
             st.plotly_chart(fig_waste, use_container_width=True, config=plotly_config)
 
-        # --- Visualisasi 6: Aisle Category Demand ---
+        # --- Visualisasi 8: Aisle Category Demand ---
         st.divider()
         st.subheader("Aisle Category Demand")
         aisle_df = data[data['Category'] == 'Aisle Category']
@@ -913,7 +965,6 @@ def filter_analytics_page():
             aisle_counts = aisle_df['Value'].value_counts().reset_index()
             aisle_counts.columns = ['Aisle', 'Count']
             max_val = aisle_counts['Count'].max()
-
             fig_aisle = px.bar(aisle_counts, x='Aisle', y='Count', text='Count', color_discrete_sequence=['#0078D4'])
             fig_aisle.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
             fig_aisle.update_layout(
@@ -923,101 +974,21 @@ def filter_analytics_page():
                 height=450, margin=dict(l=20, r=20, t=80, b=40)
             )
             st.plotly_chart(fig_aisle, use_container_width=True, config=plotly_config)
-
-        # --- Visualisasi Tambahan 1: Target Cleaning Area Clustering ---
-        st.divider()
-        st.subheader("Target Cleaning Area Demand (m²/5h)")
-        target_df = data[data['Category'] == 'Target Cleaning Area'].copy()
-
-        if not target_df.empty:
-            # Konversi nilai ke numerik untuk proses clustering
-            target_df['NumericValue'] = pd.to_numeric(target_df['Value'], errors='coerce')
-    
-            # Definisi Cluster
-            bins = [-float('inf'), 22500, 50000, 100000, float('inf')]
-            labels = ['0-22.500', '22.501-50.000', '50.001-100.000', '100.001-Seterusnya']
-    
-            target_df['Cluster'] = pd.cut(target_df['NumericValue'], bins=bins, labels=labels)
-            target_counts = target_df['Cluster'].value_counts().reindex(labels, fill_value=0).reset_index()
-            target_counts.columns = ['Area Range', 'Count']
-            max_val = target_counts['Count'].max()
-
-            fig_target = px.bar(
-                target_counts, x='Area Range', y='Count', text='Count', 
-                color_discrete_sequence=['#C0392B'] # Warna Merah Gelap
-            )
-            fig_target.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
-            fig_target.update_layout(
-                xaxis_title="", yaxis_title="Jumlah Pencarian",
-                yaxis=dict(range=[0, (max_val * 1.3) if max_val > 0 else 10], tickfont=dict(size=14)),
-                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
-                height=550, margin=dict(l=20, r=20, t=80, b=40)
-            )
-            st.plotly_chart(fig_target, use_container_width=True, config=plotly_config)
-
-        # --- Visualisasi Tambahan 2: Max Slope Clustering ---
-        st.divider()
-        st.subheader("Max Slope Preference (%)")
-        slope_df = data[data['Category'] == 'Max Slope'].copy()
-
-        if not slope_df.empty:
-            # Konversi nilai ke numerik
-            slope_df['NumericValue'] = pd.to_numeric(slope_df['Value'], errors='coerce')
-    
-            # Definisi Cluster
-            bins_slope = [-float('inf'), 5, 10, float('inf')]
-            labels_slope = ['0-5', '6-10', '11 - Seterusnya']
-    
-            slope_df['Cluster'] = pd.cut(slope_df['NumericValue'], bins=bins_slope, labels=labels_slope)
-            slope_counts = slope_df['Cluster'].value_counts().reindex(labels_slope, fill_value=0).reset_index()
-            slope_counts.columns = ['Slope Range', 'Count']
-            max_val_slope = slope_counts['Count'].max()
-
-            fig_slope = px.bar(
-                slope_counts, x='Slope Range', y='Count', text='Count', 
-                color_discrete_sequence=['#2980B9'] # Warna Biru
-            )
-            fig_slope.update_traces(textposition='outside', textfont=dict(size=22, family='Arial Black'), cliponaxis=False)
-            fig_slope.update_layout(
-                xaxis_title="", yaxis_title="Jumlah Pencarian",
-                yaxis=dict(range=[0, (max_val_slope * 1.3) if max_val_slope > 0 else 10], tickfont=dict(size=14)),
-                xaxis=dict(showticklabels=True, tickfont=dict(size=18)),
-                height=550, margin=dict(l=20, r=20, t=80, b=40)
-            )
-            st.plotly_chart(fig_slope, use_container_width=True, config=plotly_config)
         
         # --- Tabel Data Mentah dengan Tombol Export ---
         st.divider()
         st.subheader("📋 Detail Data Logs")
-        
-        # Persiapkan data untuk display
         df_display = data.iloc[::-1]
-        
         with st.expander("View & Export Data Details"):
             st.dataframe(df_display, use_container_width=True)
-            
-            # Tombol Export Berdampingan
             col_ex1, col_ex2, _ = st.columns([1, 1, 3])
-            
             with col_ex1:
-                # Export CSV
                 csv_data = df_display.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="📥 Export to CSV",
-                    data=csv_data,
-                    file_name='filter_logs.csv',
-                    mime='text/csv',
-                )
-
+                st.download_button(label="📥 Export to CSV", data=csv_data, file_name='filter_logs.csv', mime='text/csv')
             with col_ex2:
-                # Export Excel
                 excel_data = convert_df_to_excel(df_display)
-                st.download_button(
-                    label="📊 Export to Excel",
-                    data=excel_data,
-                    file_name='filter_logs.xlsx',
-                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                )
+                st.download_button(label="📊 Export to Excel", data=excel_data, file_name='filter_logs.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                
     except Exception as e:
         st.error(f"Failed to load Dashboard: {e}")
        
