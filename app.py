@@ -724,8 +724,8 @@ def show_detail(row, full_df):
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
         st.write(f"**Environment:** {env_val}")
         st.write(f"**Floor Type:** {floor_type}") 
-        st.write(f"**Max Target Cleaning Area:** :green[**{max_area} m²/5h**]")
-        st.write(f"**Max. Slope:** :red[**{slope_val}°**]")
+        st.write(f"**Max Target Cleaning Area:** {max_area} m²/5h")
+        st.write(f"**Max. Slope:** {slope_val}")
         st.write(f"**Aisle Category:** {aisle_cat}")
         st.write(f"**Obstacle:** {obstacles}")
         st.write(f"**Waste Type:** {waste_type}")
@@ -734,7 +734,7 @@ def show_detail(row, full_df):
         st.subheader("Dimensions & Weight")
         st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg")
         st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
-        st.write(f"**Aisle Width:** :orange[**{aisle_w} cm**]")
+        st.write(f"**Aisle Width:** {aisle_w} cm")
 
     st.markdown("---")
     
