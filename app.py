@@ -332,7 +332,7 @@ def show_product_analytics_page():
             }
 
             # --- CHART 1: BRAND (POSISI ATAS) ---
-            st.subheader("Total Actions by Brand")
+            st.subheader("Total Activities by Brand")
             max_b = chart_brand['count'].max()
 
             fig_b = px.bar(chart_brand, x='Brand', y='count', color='Brand', color_discrete_map=color_map, text='count')
@@ -340,7 +340,7 @@ def show_product_analytics_page():
             fig_b.update_layout(
                 height=500, # Tinggi disesuaikan agar tidak terlalu memakan ruang saat vertikal
                 showlegend=False, 
-                yaxis_title="Total Actions",
+                yaxis_title="Total Activities",
                 yaxis=dict(range=[0, max_b * 1.2], tickfont=dict(size=14)), 
                 xaxis=dict(tickfont=dict(size=18)), 
                 margin=dict(t=50, b=50) 
@@ -358,7 +358,7 @@ def show_product_analytics_page():
             st.divider()
 
             # --- CHART 2: MODEL (POSISI BAWAH) ---
-            st.subheader("Top 10 Models by Actions")
+            st.subheader("Top 10 Models")
             # Untuk chart horizontal, kita gunakan max_x untuk padding kanan
             max_m = chart_model.head(10)['count'].max()
 
@@ -368,7 +368,7 @@ def show_product_analytics_page():
                 height=600, 
                 yaxis=dict(showticklabels=True, tickfont=dict(size=16), categoryorder='total ascending'), 
                 xaxis=dict(range=[0, max_m * 1.3], tickfont=dict(size=14)), 
-                xaxis_title="Total Actions",
+                xaxis_title="Total Activities",
                 margin=dict(t=50, b=50)
             )
 
