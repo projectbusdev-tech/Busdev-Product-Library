@@ -243,6 +243,17 @@ def show_product_analytics_page():
         st.info("Belum ada data aktivitas.")
         return
 
+    # LOGIKA PRIVASI DATA (USER-SPECIFIC)
+    # Jika role bukan Admin, filter data agar hanya menampilkan milik username yang sedang login
+    if st.session_state.role != "Admin":
+        # Menggunakan str.lower() untuk memastikan perbandingan tidak sensitif huruf kapital
+        history_df = history_df[history_df['Username'].str.lower() == st.session_state.username.lower()]
+
+    # 2. Cek kembali apakah data ada setelah difilter
+    if history_df.empty:
+        st.info("Anda belum memiliki riwayat aktivitas produk untuk dianalisis.")
+        return
+
     history_df['Timestamp'] = pd.to_datetime(history_df['Timestamp'])
     
     # Filter Role
