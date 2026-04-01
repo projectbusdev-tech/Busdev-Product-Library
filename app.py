@@ -707,6 +707,8 @@ def show_detail(row, full_df):
     floor_type = clean_list_string(row.get('Floor_Type_List'))
     obstacles = clean_list_string(row.get('Obstacle_List'))
     waste_type = clean_list_string(row.get('Waste_Type_List'))
+    charging_time = clean_list_string(row.get('Charging_Time'))
+    
 
     # Judul dan Tombol Compare
     col_title, col_comp = st.columns([3, 1])
@@ -739,6 +741,7 @@ def show_detail(row, full_df):
         st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg")
         st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
         st.write(f"**Aisle Width:** {aisle_w} cm")
+        st.write(f"**Floor Type:** {charging_time}")
 
     st.markdown("---")
     
