@@ -735,20 +735,21 @@ def show_detail(row, full_df):
         st.write(f"**Floor Type:** {floor_type}") 
         st.write(f"**Max Target Cleaning Area:** {max_area} m²/5h")
         st.write(f"**Max. Slope:** {slope_val}")
-        st.write(f"**Aisle Category:** {aisle_cat}")
-        st.subheader("Obstacle & Waste Type")
-        st.write(f"**Obstacle:** {obstacles}")
-        st.write(f"**Waste Type:** {waste_type}")
+        st.write(f"**Charging Time :** {charging_time}")
+        st.write(f"**Clean/Waste Water Tank :** {clean_waste_water_tank}")
         
     with col2:
+        st.subheader("Weight & Dimensions")
         st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg")
         st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
         st.write(f"**Aisle Width:** {aisle_w} cm")
-        st.write(f"**Charging Time :** {charging_time}")
-        st.write(f"**Clean/Waste Water Tank :** {clean_waste_water_tank}")
+        st.write(f"**Aisle Category:** {aisle_cat}")
         st.subheader("Sensing System & Feature")
         st.write(f"**Sensing System :** {sensing_list}")
         st.write(f"**Feature :** {feature_list}")
+        st.subheader("Obstacle & Waste Type")
+        st.write(f"**Obstacle:** {obstacles}")
+        st.write(f"**Waste Type:** {waste_type}")
 
     st.markdown("---")
     
