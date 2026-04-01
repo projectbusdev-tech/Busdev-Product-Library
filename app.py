@@ -737,6 +737,9 @@ def show_detail(row, full_df):
         st.write(f"**Max. Slope:** {slope_val}")
         st.write(f"**Charging Time :** {charging_time}")
         st.write(f"**Clean/Waste Water Tank :** {clean_waste_water_tank}")
+        st.subheader("Obstacle & Waste Type")
+        st.write(f"**Obstacle:** {obstacles}")
+        st.write(f"**Waste Type:** {waste_type}")
         
     with col2:
         st.subheader("Weight & Dimensions")
@@ -747,9 +750,6 @@ def show_detail(row, full_df):
         st.subheader("Sensing System & Feature")
         st.write(f"**Sensing System :** {sensing_list}")
         st.write(f"**Feature :** {feature_list}")
-        st.subheader("Obstacle & Waste Type")
-        st.write(f"**Obstacle:** {obstacles}")
-        st.write(f"**Waste Type:** {waste_type}")
 
     st.markdown("---")
     
