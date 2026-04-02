@@ -712,8 +712,17 @@ def show_detail(row, full_df):
     sensing_list = clean_list_string(row.get('Sensing_System_List'))
     feature_list = clean_list_string(row.get('Feature_Detail_List'))
 
-    # Ambil link YouTube dari kolom Video_Link
-    video_url = row.get('Video_Link', '')
+    # --- LOGIKA SANITASI URL VIDEO ---
+    raw_video_url = row.get('Video_Link', '')
+    video_url = str(raw_video_url).strip()
+    
+    # Cek apakah URL valid dan bukan NaN
+    has_video = False
+    if video_url and video_url.lower() != 'nan':
+        # Paksa tambahkan https:// jika user hanya menulis www.youtube.com
+        if not video_url.startswith(('http://', 'https://')):
+            video_url = f"https://{video_url}"
+        has_video = True
 
     # Judul dan Tombol Compare
     col_title, col_comp = st.columns([3, 1])
@@ -752,8 +761,11 @@ def show_detail(row, full_df):
         st.subheader("Sensing System & Feature")
         st.write(f"**Sensing System :** {sensing_list}")
         st.write(f"**Feature :** {feature_list}")
-        st.subheader("Video")
-        st.write(f"**Video :** {video_url}")
+        # Penempatan Video di col2
+        if has_video:
+            st.subheader("Video")
+            # Menggunakan link_button agar otomatis membuka tab baru (external)
+            st.link_button("🎥 Watch on YouTube", video_url, use_container_width=True)
 
     st.markdown("---")
     
