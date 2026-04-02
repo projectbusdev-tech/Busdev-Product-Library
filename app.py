@@ -753,12 +753,8 @@ def show_detail(row, full_df):
         st.subheader("Sensing System & Feature")
         st.write(f"**Sensing System :** {sensing_list}")
         st.write(f"**Feature :** {feature_list}")
-
-        # Opsi: Jika ingin menambahkan tombol kecil khusus di dalam kolom
-            if st.button("▶️ Play Video Demo", key=f"yt_inline_{video_url}"):
-                handle_share_logging(st.session_state.username, brand, model, "YouTube")
-                js_yt = f'window.open("{video_url}", "_blank").focus();'
-                st.components.v1.html(f'<script>{js_yt}</script>', height=0)
+        st.subheader("Multimedia")
+        st.markdown(f"🎥 **Video Demo:** [Watch on YouTube]({video_url})")
 
     st.markdown("---")
     
