@@ -712,17 +712,21 @@ def show_detail(row, full_df):
     sensing_list = clean_list_string(row.get('Sensing_System_List'))
     feature_list = clean_list_string(row.get('Feature_Detail_List'))
 
-    # --- LOGIKA SANITASI URL VIDEO ---
-    raw_video_url = row.get('Video_Link', '')
-    video_url = str(raw_video_url).strip()
+    # --- LOGIKA SANITASI URL VIDEO (VERSI LEBIH KUAT) ---
+    raw_video_url = row.get('Video_Link') # Jangan kasih default '' dulu
     
-    # Cek apakah URL valid dan bukan NaN
-    has_video = False
-    if video_url and video_url.lower() != 'nan':
-        # Paksa tambahkan https:// jika user hanya menulis www.youtube.com
+    # Pastikan bukan NaN, bukan None, dan bukan tanda strip "-"
+    if pd.isna(raw_video_url) or str(raw_video_url).strip() in ["", "-", "nan", "NaN"]:
+        has_video = False
+        video_url = ""
+    else:
+        video_url = str(raw_video_url).strip()
         if not video_url.startswith(('http://', 'https://')):
             video_url = f"https://{video_url}"
         has_video = True
+
+    # --- DEBUG (Opsional: Munculkan ini jika tombol tetap tidak ada) ---
+    # st.write(f"Status Video: {has_video}, URL: {video_url}")
 
     # Judul dan Tombol Compare
     col_title, col_comp = st.columns([3, 1])
@@ -761,11 +765,14 @@ def show_detail(row, full_df):
         st.subheader("Sensing System & Feature")
         st.write(f"**Sensing System :** {sensing_list}")
         st.write(f"**Feature :** {feature_list}")
-        # Penempatan Video di col2
+        
+        # Bagian ini HARUS menjorok ke dalam 'with col2'
         if has_video:
-            st.subheader("Video")
-            # Menggunakan link_button agar otomatis membuka tab baru (external)
+            st.subheader("Video Demonstration")
             st.link_button("🎥 Watch on YouTube", video_url, use_container_width=True)
+        else:
+            # Opsional: Beri info jika video tidak ada agar Anda tahu kodenya jalan
+            st.caption("ℹ️ No video available for this model")
 
     st.markdown("---")
     
