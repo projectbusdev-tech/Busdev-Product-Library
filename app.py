@@ -711,7 +711,10 @@ def show_detail(row, full_df):
     clean_waste_water_tank = clean_list_string(row.get('Clean_Waste_Water_Tank'))
     sensing_list = clean_list_string(row.get('Sensing_System_List'))
     feature_list = clean_list_string(row.get('Feature_Detail_List'))
-    
+
+    # Ambil link YouTube dari kolom Video_Link
+    video_url = row.get('Video_Link', '')
+    has_video = not pd.isna(video_url) and str(video_url).startswith("http")
 
     # Judul dan Tombol Compare
     col_title, col_comp = st.columns([3, 1])
@@ -750,6 +753,11 @@ def show_detail(row, full_df):
         st.subheader("Sensing System & Feature")
         st.write(f"**Sensing System :** {sensing_list}")
         st.write(f"**Feature :** {feature_list}")
+        # --- PENEMPATAN LINK YOUTUBE DI COL2 ---
+        if has_video:
+            st.subheader("Multimedia")
+            # Menampilkan sebagai link teks yang menonjol
+            st.markdown(f"🎥 **Video Demo:** [Watch on YouTube]({video_url})")
 
     st.markdown("---")
     
