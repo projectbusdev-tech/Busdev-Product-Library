@@ -753,8 +753,7 @@ def show_detail(row, full_df):
         st.subheader("Sensing System & Feature")
         st.write(f"**Sensing System :** {sensing_list}")
         st.write(f"**Feature :** {feature_list}")
-        st.subheader("Multimedia")
-        st.markdown(f"🎥 **Video Demo:** [Watch on YouTube]({video_url})")
+        st.markdown(f'🎥 **Video Demo:** <a href="{video_url}" target="blank" rel="noopener noreferrer">Watch on YouTube</a>', unsafe_allow_html=True)
 
     st.markdown("---")
     
