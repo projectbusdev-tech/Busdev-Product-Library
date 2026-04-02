@@ -727,7 +727,7 @@ def show_detail(row, full_df):
         has_video = True
 
     # --- DEBUGGING (Hapus baris ini jika sudah muncul) ---
-    # st.write(f"DEBUG: '{video_url}' | Status: {has_video}")
+    st.write(f"DEBUG: '{video_url}' | Status: {has_video}")
 
     # Judul dan Tombol Compare
     col_title, col_comp = st.columns([3, 1])
