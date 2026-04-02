@@ -711,7 +711,30 @@ def show_detail(row, full_df):
     clean_waste_water_tank = clean_list_string(row.get('Clean_Waste_Water_Tank'))
     sensing_list = clean_list_string(row.get('Sensing_System_List'))
     feature_list = clean_list_string(row.get('Feature_Detail_List'))
+
+    # --- LOGIKA PEMBERSIHAN TOTAL ---
+    raw_val = row.get('Video_Link')
     
+    # 1. Pastikan bukan NaN dan ubah ke string
+    video_url = str(raw_val).strip() if pd.notna(raw_val) else ""
+    
+    # 2. Hapus karakter aneh yang sering terbawa dari Excel
+    # Ini menghapus spasi, tanda strip, dan string 'nan'
+    if video_url in ["-", "nan", "NaN", "None", ""]:
+        has_video = False
+    else:
+        # 3. Validasi apakah ini benar-benar link YouTube
+        if "youtu" in video_url.lower():
+            # Pastikan diawali https://
+            if not video_url.startswith(('http://', 'https://')):
+                video_url = f"https://{video_url}"
+            has_video = True
+        else:
+            has_video = False
+
+    # --- DEBUGGING (PENTING) ---
+    # Jika masih tidak muncul, aktifkan baris di bawah ini untuk melihat apa yang dibaca Python
+    # st.write(f"DEBUG - Nilai Asli: '{raw_val}' | Hasil Bersih: '{video_url}' | Status: {has_video}")
 
     # Judul dan Tombol Compare
     col_title, col_comp = st.columns([3, 1])
@@ -750,6 +773,13 @@ def show_detail(row, full_df):
         st.subheader("Sensing System & Feature")
         st.write(f"**Sensing System :** {sensing_list}")
         st.write(f"**Feature :** {feature_list}")
+        
+        # Area Video
+        st.subheader("Video")
+        if has_video:
+            st.link_button("🎥 Watch Video Demo", video_url, use_container_width=True)
+        else:
+            st.info("No video available for this model")
 
     st.markdown("---")
     
