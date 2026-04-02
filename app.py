@@ -714,7 +714,13 @@ def show_detail(row, full_df):
 
     # Ambil link YouTube dari kolom Video_Link
     video_url = row.get('Video_Link', '')
-    has_video = not pd.isna(video_url) and str(video_url).startswith("http")
+    # Memastikan URL diawali dengan https:// agar tidak dianggap rute internal
+    if isinstance(video_url, str) and video_url.strip():
+        if not video_url.startswith(("http://", "https://")):
+        video_url = f"https://{video_url.strip()}"
+        has_video = True
+    else:
+        has_video = False
 
     # Judul dan Tombol Compare
     col_title, col_comp = st.columns([3, 1])
