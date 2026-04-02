@@ -712,22 +712,29 @@ def show_detail(row, full_df):
     sensing_list = clean_list_string(row.get('Sensing_System_List'))
     feature_list = clean_list_string(row.get('Feature_Detail_List'))
 
-    # --- PERBAIKAN LOGIKA SANITASI URL VIDEO ---
-    raw_video_url = row.get('Video_Link')
+    # --- LOGIKA PEMBERSIHAN TOTAL ---
+    raw_val = row.get('Video_Link')
     
-    # Konversi ke string dan bersihkan spasi di awal/akhir
-    video_url = str(raw_video_url).strip() if not pd.isna(raw_video_url) else ""
+    # 1. Pastikan bukan NaN dan ubah ke string
+    video_url = str(raw_val).strip() if pd.notna(raw_val) else ""
     
-    # Cek apakah isinya benar-benar link (bukan "-", bukan kosong, bukan "nan")
-    has_video = False
-    if video_url and video_url not in ["-", "nan", "NaN", "None"]:
-        # Pastikan diawali https agar tidak dianggap rute internal aplikasi
-        if not video_url.startswith(('http://', 'https://')):
-            video_url = f"https://{video_url}"
-        has_video = True
+    # 2. Hapus karakter aneh yang sering terbawa dari Excel
+    # Ini menghapus spasi, tanda strip, dan string 'nan'
+    if video_url in ["-", "nan", "NaN", "None", ""]:
+        has_video = False
+    else:
+        # 3. Validasi apakah ini benar-benar link YouTube
+        if "youtu" in video_url.lower():
+            # Pastikan diawali https://
+            if not video_url.startswith(('http://', 'https://')):
+                video_url = f"https://{video_url}"
+            has_video = True
+        else:
+            has_video = False
 
-    # --- DEBUGGING (Hapus baris ini jika sudah muncul) ---
-    st.write(f"DEBUG: '{video_url}' | Status: {has_video}")
+    # --- DEBUGGING (PENTING) ---
+    # Jika masih tidak muncul, aktifkan baris di bawah ini untuk melihat apa yang dibaca Python
+    # st.write(f"DEBUG - Nilai Asli: '{raw_val}' | Hasil Bersih: '{video_url}' | Status: {has_video}")
 
     # Judul dan Tombol Compare
     col_title, col_comp = st.columns([3, 1])
