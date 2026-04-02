@@ -707,6 +707,11 @@ def show_detail(row, full_df):
     floor_type = clean_list_string(row.get('Floor_Type_List'))
     obstacles = clean_list_string(row.get('Obstacle_List'))
     waste_type = clean_list_string(row.get('Waste_Type_List'))
+    charging_time = clean_list_string(row.get('Charging_Time'))
+    clean_waste_water_tank = clean_list_string(row.get('Clean_Waste_Water_Tank'))
+    sensing_list = clean_list_string(row.get('Sensing_System_List'))
+    feature_list = clean_list_string(row.get('Feature_Detail_List'))
+    
 
     # Judul dan Tombol Compare
     col_title, col_comp = st.columns([3, 1])
@@ -724,21 +729,27 @@ def show_detail(row, full_df):
     st.markdown("---")
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader("General Specifications")
+        st.subheader("Specifications")
         st.write(f"**Product Type:** {row.get('Product_type', '-')}")
         st.write(f"**Environment:** {env_val}")
         st.write(f"**Floor Type:** {floor_type}") 
         st.write(f"**Max Target Cleaning Area:** {max_area} m²/5h")
         st.write(f"**Max. Slope:** {slope_val}")
-        st.write(f"**Aisle Category:** {aisle_cat}")
+        st.write(f"**Charging Time :** {charging_time}")
+        st.write(f"**Clean/Waste Water Tank :** {clean_waste_water_tank}")
+        st.subheader("Obstacle & Waste Type")
         st.write(f"**Obstacle:** {obstacles}")
         st.write(f"**Waste Type:** {waste_type}")
         
     with col2:
-        st.subheader("Dimensions & Weight")
+        st.subheader("Weight & Dimensions")
         st.write(f"**Net Weight:** {row.get('Net Weight (kg)', '-')} Kg")
         st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
         st.write(f"**Aisle Width:** {aisle_w} cm")
+        st.write(f"**Aisle Category:** {aisle_cat}")
+        st.subheader("Sensing System & Feature")
+        st.write(f"**Sensing System :** {sensing_list}")
+        st.write(f"**Feature :** {feature_list}")
 
     st.markdown("---")
     
