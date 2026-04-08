@@ -596,10 +596,7 @@ def click_detail(row):
 # --- LOAD DATA FUNCTION ---
 @st.cache_data(ttl=3600)
 def load_data():
-    try:
-        df = pd.read_csv("Dataset_Normalized_Complete.csv", sep=";", encoding='latin1')
-    except:
-        df = pd.read_csv("Dataset_Normalized_Complete.csv", sep=";")
+    df = pd.read_csv("Dataset_Normalized_Complete.csv", sep=";")
     df.columns = df.columns.str.strip() 
     if 'Product_type' in df.columns:
         df['Product_type'] = df['Product_type'].astype(str).str.strip()
