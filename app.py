@@ -718,19 +718,17 @@ def show_detail(row, full_df):
     # 1. Pastikan bukan NaN dan ubah ke string
     video_url = str(raw_val).strip() if pd.notna(raw_val) else ""
     
-    # 2. Hapus karakter aneh yang sering terbawa dari Excel
-    # Ini menghapus spasi, tanda strip, dan string 'nan'
+    # 2. Cek apakah isinya benar-benar link yang valid
     if video_url in ["-", "nan", "NaN", "None", ""]:
         has_video = False
     else:
-        # 3. Validasi apakah ini benar-benar link YouTube
-        if "youtu" in video_url.lower():
-            # Pastikan diawali https://
-            if not video_url.startswith(('http://', 'https://')):
-                video_url = f"https://{video_url}"
-            has_video = True
-        else:
-            has_video = False
+        # 3. Pastikan diawali dengan protokol http agar tidak error
+        if not video_url.startswith(('http://', 'https://')):
+            # Jika user lupa input https://, kita tambahkan secara otomatis
+            video_url = f"https://{video_url}"
+        
+        # Anggap valid jika setidaknya ada titik (.) sebagai ciri domain/URL
+        has_video = "." in video_url
 
     # --- DEBUGGING (PENTING) ---
     # Jika masih tidak muncul, aktifkan baris di bawah ini untuk melihat apa yang dibaca Python
