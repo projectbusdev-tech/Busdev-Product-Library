@@ -710,7 +710,10 @@ def show_detail(row, full_df):
     charging_time = clean_list_string(row.get('Charging_Time'))
     clean_waste_water_tank = clean_list_string(row.get('Clean_Waste_Water_Tank'))
     sensing_list = clean_list_string(row.get('Sensing_System_List'))
-    feature_list = clean_list_string(row.get('Feature_Detail_List'))
+    feature_list = clean_list_string(row.get('Feature_Detail_List')) 
+    solution_tank = clean_list_string(row.get('Solution_Tank_Capacity'))
+    recovery_tank = clean_list_string(row.get('Recovery_Tank_Capacity'))
+    waste_tank = clean_list_string(row.get('Waste_Tank_Capacity'))
 
     # --- LOGIKA PEMBERSIHAN TOTAL ---
     raw_val = row.get('Video_Link')
@@ -757,10 +760,10 @@ def show_detail(row, full_df):
         st.write(f"**Max Target Cleaning Area:** {max_area} m²/5h")
         st.write(f"**Max. Slope:** {slope_val}")
         st.write(f"**Charging Time :** {charging_time}")
+        st.write(f"**Solution Tank Capacity :** {solution_tank}")
+        st.write(f"**Recovery Tank Capacity :** {recovery_tank}")
+        st.write(f"**Waste Tank Capacity :** {waste_tank}")
         st.write(f"**Clean/Waste Water Tank :** {clean_waste_water_tank}")
-        st.subheader("Obstacle & Waste Type")
-        st.write(f"**Obstacle:** {obstacles}")
-        st.write(f"**Waste Type:** {waste_type}")
         
     with col2:
         st.subheader("Weight & Dimensions")
@@ -768,6 +771,9 @@ def show_detail(row, full_df):
         st.write(f"**Dimensions (L/W/H):** {row.get('Measures_L','-')}/{row.get('Measures_W','-')}/{row.get('Measures_H','-')} mm")
         st.write(f"**Aisle Width:** {aisle_w} cm")
         st.write(f"**Aisle Category:** {aisle_cat}")
+        st.subheader("Obstacle & Waste Type")
+        st.write(f"**Obstacle:** {obstacles}")
+        st.write(f"**Waste Type:** {waste_type}")
         st.subheader("Sensing System & Feature")
         st.write(f"**Sensing System :** {sensing_list}")
         st.write(f"**Feature :** {feature_list}")
