@@ -163,20 +163,19 @@ def clear_gsheet_content(sheet_name):
         st.error(f"Gagal menghapus data: {e}")
         return False
 
-
 def load_registered_users():
-    """Membaca data user dari Google Sheets secara real-time dan memastikan tipe data benar."""
     try:
-        # Gunakan worksheet="NamaSheetAnda" jika data user ada di tab khusus
-        df = conn.read(ttl=0) 
-        # Memastikan kolom Password dibaca sebagai string untuk menghindari error angka
-        if not df.empty and 'Password' in df.columns:
-            df['Password'] = df['Password'].astype(str).str.strip()
-        if not df.empty and 'Username' in df.columns:
-            df['Username'] = df['Username'].astype(str).str.strip()
+        # Membaca sheet Registered_Users
+        df = conn.read(worksheet="UserAccount", ttl=0)
+        # Jika kolom Status belum ada, buat dan isi dengan Active (untuk legacy user)
+        if 'Status' not in df.columns:
+            df['Status'] = 'Active'
+        else:
+            df['Status'] = df['Status'].fillna('Active')
         return df
-    except Exception:
-        return pd.DataFrame(columns=["Username", "Password", "Role", "Verified"])
+    except Exception as e:
+        st.error(f"Gagal memuat data user: {e}")
+        return pd.DataFrame(columns=["Username", "Password", "Role", "Verified", "Status"])
 
 def save_new_user(email, password):
     """Menyimpan user baru ke Google Sheets agar permanen."""
@@ -230,7 +229,7 @@ def convert_df_to_excel(df):
     output = io.BytesIO()
     # Menggunakan engine xlsxwriter agar lebih cepat dan ringan
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Sheet1')
+        df.to_excel(writer, index=False, sheet_name='UserAccount')
     return output.getvalue()
 
 # --- PAGES ---
