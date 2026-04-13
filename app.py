@@ -526,7 +526,7 @@ def show_user_management_page():
     if not users_df.empty:
         st.subheader("Registered Users (Google Sheets Database)")
         for index, row in users_df.iterrows():
-            col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+            col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
             with col1:
                 st.write(f"**Email:** {row['Username']}")
             with col2:
