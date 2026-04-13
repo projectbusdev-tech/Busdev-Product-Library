@@ -178,20 +178,19 @@ def load_registered_users():
         return pd.DataFrame(columns=["Username", "Password", "Role", "Verified", "ApprovalStatus"])
 
 def save_new_user(email, password):
-    """Menyimpan user baru ke Google Sheets agar permanen."""
     users_df = load_registered_users()
     if email in users_df['Username'].values:
-        return False, "Email sudah terdaftar!"
+        return False, "Email sudah terdaftar."
     
-    new_entry = pd.DataFrame([[email, password, "User", True]], 
-                             columns=["Username", "Password", "Role", "Verified"])
+    # User baru otomatis berstatus Pending
+    new_user = pd.DataFrame([[email, password, "User", True, "Pending"]], columns=["Username", "Password", "Role", "Verified", "AccountStatus"])
+    updated_df = pd.concat([users_df, new_user], ignore_index=True)
     
-    # Gabungkan data lama dengan data baru
-    updated_df = pd.concat([users_df, new_entry], ignore_index=True)
-    
-    # Update ke Google Sheets
-    conn.update(data=updated_df)
-    return True, "Akun berhasil dibuat secara permanen! Silakan login."
+    try:
+        conn.update(worksheet="UserAccount", data=updated_df)
+        return True, "Registrasi berhasil! Mohon Menunggu Approval Admin untuk dapat login. silahkan follow-up ke tim Product Management 1"
+    except Exception as e:
+        return False, f"Gagal menyimpan data: {e}"
 
 def delete_user_gsheet(email_to_delete):
     """Menghapus user dari Google Sheets."""
@@ -199,6 +198,31 @@ def delete_user_gsheet(email_to_delete):
     updated_df = users_df[users_df['Username'] != email_to_delete]
     conn.update(data=updated_df)
     return True
+
+# --- ADMIN APPROVAL PAGE ---
+def show_admin_approval_page():
+    st.title("🛡️ User Approval Management")
+    st.info("Halaman ini digunakan untuk menyetujui akses user baru.")
+    
+    users_df = load_registered_users()
+    # Filter hanya yang berstatus Pending
+    pending_users = users_df[users_df['ApprovalStatus'].str.lower() == 'pending']
+    
+    if pending_users.empty:
+        st.success("Semua permintaan akun telah diproses. Tidak ada antrean baru.")
+    else:
+        for index, row in pending_users.iterrows():
+            with st.container(border=True):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(f"**Request dari:** {row['Username']}")
+                    st.caption(f"Status Saat Ini: {row['ApprovalStatus']}")
+                with col2:
+                    if st.button("Approve ✅", key=f"approve_{index}"):
+                        users_df.at[index, 'ApprovalStatus'] = 'Active'
+                        conn.update(worksheet="Registered_Users", data=users_df)
+                        st.success(f"Akun {row['Username']} diaktifkan!")
+                        st.rerun()
 
 # --- DIALOG SIGN UP ---
 @st.dialog("Sign Up")
@@ -507,11 +531,20 @@ def login_screen():
                     match = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
                     
                     if not match.empty:
-                        st.session_state.logged_in = True
-                        st.session_state.username = username
-                        st.session_state.role = match.iloc[0]['Role']
-                        log_login(username, st.session_state.role)
-                        st.rerun()
+                        user_status = match.iloc[0]['ApprovalStatus']
+                        
+                        # --- PENGECEKAN STATUS APPROVAL ---
+                        if user_status == "Pending":
+                            st.warning("⚠️ Akun Anda sedang menunggu persetujuan Admin. Silakan hubungi Admin untuk aktivasi.")
+                        elif user_status == "Active":
+                            st.session_state.logged_in = True
+                            st.session_state.username = username
+                            # Pastikan kolom 'Role' ada di sheet Anda, jika tidak ada bisa default ke 'User'
+                            st.session_state.role = match.iloc[0]['Role'] if 'Role' in match.columns else "User"
+                            log_login(username, st.session_state.role)
+                            st.rerun()
+                        else:
+                            st.error("Status akun tidak dikenal. Silakan hubungi IT.")
                     else:
                         st.error("Invalid Username or Password")
         
