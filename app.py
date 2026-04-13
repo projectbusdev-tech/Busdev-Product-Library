@@ -220,7 +220,7 @@ def show_admin_approval_page():
                 with col2:
                     if st.button("Approve ✅", key=f"approve_{index}"):
                         users_df.at[index, 'ApprovalStatus'] = 'Active'
-                        conn.update(worksheet="Registered_Users", data=users_df)
+                        conn.update(worksheet="UserAccount", data=users_df)
                         st.success(f"Akun {row['Username']} diaktifkan!")
                         st.rerun()
 
