@@ -175,7 +175,7 @@ def load_registered_users():
         return df
     except Exception as e:
         st.error(f"Gagal memuat data user: {e}")
-        return pd.DataFrame(columns=["Username", "Password", "Role", "Verified", "Status"])
+        return pd.DataFrame(columns=["Username", "Password", "Role", "Verified", "ApprovalStatus"])
 
 def save_new_user(email, password):
     """Menyimpan user baru ke Google Sheets agar permanen."""
@@ -532,9 +532,11 @@ def show_user_management_page():
             with col2:
                 st.write(f"**Role:** {row['Role']}")
             with col3:
-                status = "✅ Verified" if row['Verified'] else "❌ Unverified"
-                st.write(status)
+                verifystatus = "✅ Verified" if row['Verified'] else "❌ Unverified"
+                st.write(verifystatus)
             with col4:
+                st.write(f"**Account Status:** {row['ApprovalStatus']}")
+            with col5:
                 if row['Username'] != st.session_state.username:
                     if st.button("Delete", key=f"del_{row['Username']}"):
                         delete_user_gsheet(row['Username'])
