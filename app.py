@@ -168,10 +168,10 @@ def load_registered_users():
         # Membaca sheet Registered_Users
         df = conn.read(worksheet="UserAccount", ttl=0)
         # Jika kolom Status belum ada, buat dan isi dengan Active (untuk legacy user)
-        if 'Status' not in df.columns:
-            df['Status'] = 'Active'
+        if 'ApprovalStatus' not in df.columns:
+            df['ApprovalStatus'] = 'Active'
         else:
-            df['Status'] = df['Status'].fillna('Active')
+            df['ApprovalStatus'] = df['ApprovalStatus'].fillna('Active')
         return df
     except Exception as e:
         st.error(f"Gagal memuat data user: {e}")
@@ -183,7 +183,7 @@ def save_new_user(email, password):
         return False, "Email sudah terdaftar."
     
     # User baru otomatis berstatus Pending
-    new_user = pd.DataFrame([[email, password, "User", True, "Pending"]], columns=["Username", "Password", "Role", "Verified", "AccountStatus"])
+    new_user = pd.DataFrame([[email, password, "User", True, "Pending"]], columns=["Username", "Password", "Role", "Verified", "ApprovalStatus"])
     updated_df = pd.concat([users_df, new_user], ignore_index=True)
     
     try:
@@ -1104,7 +1104,7 @@ def main():
     
     pages = ["Product Library", "Product Analytics" , "Filter Analytics"]
     if st.session_state.role == "Admin":
-        pages.extend(["Login History", "User Management"])
+        pages.extend(["Login History", "Admin Approval", "User Management"])
     
     selected_page = st.sidebar.selectbox("Navigate to", pages)
 
@@ -1114,6 +1114,8 @@ def main():
         filter_analytics_page()
     elif selected_page == "Login History":
         show_history_page()
+    elif selected_page == "Admin Approval":
+        show_admin_approval_page()
     elif selected_page == "User Management":
         show_user_management_page()
     else:
