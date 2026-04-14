@@ -167,15 +167,35 @@ def load_registered_users():
     try:
         # Membaca sheet Registered_Users
         df = conn.read(worksheet="UserAccount", ttl=0)
+
+        # Memastikan Username dan Password selalu terbaca sebagai teks/string
+        df['Username'] = df['Username'].astype(str).str.strip()
+        df['Password'] = df['Password'].astype(str).str.strip()
+        
         # Jika kolom Status belum ada, buat dan isi dengan Active (untuk legacy user)
         if 'ApprovalStatus' not in df.columns:
             df['ApprovalStatus'] = 'Active'
         else:
             df['ApprovalStatus'] = df['ApprovalStatus'].fillna('Active')
+            
+        if 'Role' not in df.columns:
+            df['Role'] = 'User'
+        else:
+            df['Role'] = df['Role'].fillna('User')
         return df
     except Exception as e:
         st.error(f"Gagal memuat data user: {e}")
         return pd.DataFrame(columns=["Username", "Password", "Role", "Verified", "ApprovalStatus"])
+        
+def update_user_gsheet(updated_df):
+    """Fungsi pembantu untuk menyimpan perubahan ke Google Sheets"""
+    try:
+        conn.update(worksheet="UserAccount", data=updated_df)
+        return True
+    except Exception as e:
+        st.error(f"Gagal memperbarui database: {e}")
+        return False
+
 
 def save_new_user(email, password):
     users_df = load_registered_users()
@@ -552,32 +572,114 @@ def login_screen():
         if st.button("Sign Up"):
             signup_dialog()
 
+def load_registered_users():
+    try:
+        # Membaca sheet UserAccount
+        df = conn.read(worksheet="UserAccount", ttl=0)
+        
+        # --- PERBAIKAN UNTUK LOGIN (Muhammad Sina & Password Angka) ---
+        # Memastikan Username dan Password selalu terbaca sebagai teks/string
+        df['Username'] = df['Username'].astype(str).str.strip()
+        df['Password'] = df['Password'].astype(str).str.strip()
+        
+        # Inisialisasi kolom jika belum ada
+        if 'ApprovalStatus' not in df.columns:
+            df['ApprovalStatus'] = 'Active'
+        else:
+            df['ApprovalStatus'] = df['ApprovalStatus'].fillna('Active')
+            
+        if 'Role' not in df.columns:
+            df['Role'] = 'User'
+        else:
+            df['Role'] = df['Role'].fillna('User')
+            
+        return df
+    except Exception as e:
+        st.error(f"Gagal memuat data user: {e}")
+        return pd.DataFrame(columns=["Username", "Password", "Role", "Verified", "ApprovalStatus"])
+
+def update_user_gsheet(updated_df):
+    """Fungsi pembantu untuk menyimpan perubahan ke Google Sheets"""
+    try:
+        conn.update(worksheet="UserAccount", data=updated_df)
+        return True
+    except Exception as e:
+        st.error(f"Gagal memperbarui database: {e}")
+        return False
+
 def show_user_management_page():
-    st.title("👥 User Management")
+    st.title("👥 User Management & Role Control")
+    st.write("Kelola hak akses dan persetujuan akun karyawan di sini.")
+    
+    # Load data terbaru
     users_df = load_registered_users()
     
     if not users_df.empty:
-        st.subheader("Registered Users (Google Sheets Database)")
+        # Header Tabel
+        h1, h2, h3, h4 = st.columns([2, 1.5, 1.5, 1])
+        h1.write("**Email**")
+        h2.write("**Role Access**")
+        h3.write("**Account Status**")
+        h4.write("**Action**")
+        st.divider()
+
+        # Loop setiap user
         for index, row in users_df.iterrows():
-            col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
+            # Jika user ini adalah admin yang sedang login, kita beri proteksi agar tidak mengubah diri sendiri
+            is_self = (row['Username'] == st.session_state.username)
+            
+            col1, col2, col3, col4 = st.columns([2, 1.5, 1.5, 1])
+            
             with col1:
-                st.write(f"**Email:** {row['Username']}")
-            with col2:
-                st.write(f"**Role:** {row['Role']}")
-            with col3:
-                verifystatus = "✅ Verified" if row['Verified'] else "❌ Unverified"
-                st.write(verifystatus)
-            with col4:
-                st.write(f"**Account Status:** {row['ApprovalStatus']}")
-            with col5:
-                if row['Username'] != st.session_state.username:
-                    if st.button("Delete", key=f"del_{row['Username']}"):
-                        delete_user_gsheet(row['Username'])
-                        st.success(f"User {row['Username']} berhasil dihapus permanen!")
-                        st.rerun()
+                st.write(row['Username'])
+                if row['Verified']:
+                    st.caption("✅ Verified")
                 else:
-                    st.write("(Current Admin)")
-            st.divider()
+                    st.caption("❌ Unverified")
+
+            with col2:
+                # Fitur Change Role
+                new_role = st.selectbox(
+                    "Role",
+                    options=["User", "Admin"],
+                    index=0 if row['Role'] == "User" else 1,
+                    key=f"role_{row['Username']}",
+                    label_visibility="collapsed",
+                    disabled=is_self
+                )
+
+            with col3:
+                # Fitur Approval (Change Status)
+                new_status = st.selectbox(
+                    "Status",
+                    options=["Pending", "Active", "Inactive"],
+                    index=["Pending", "Active", "Inactive"].index(row['ApprovalStatus']),
+                    key=f"stat_{row['Username']}",
+                    label_visibility="collapsed",
+                    disabled=is_self
+                )
+
+            with col4:
+                # Tombol simpan untuk baris ini
+                if not is_self:
+                    if st.button("Save", key=f"save_{row['Username']}"):
+                        # Update dataframe
+                        users_df.at[index, 'Role'] = new_role
+                        users_df.at[index, 'ApprovalStatus'] = new_status
+                        
+                        if update_user_gsheet(users_df):
+                            st.success(f"Update {row['Username']} Berhasil!")
+                            st.rerun()
+                    
+                    if st.button("Delete", key=f"del_{row['Username']}", type="secondary"):
+                        # Logika delete yang sudah Anda miliki sebelumnya
+                        # delete_user_gsheet(row['Username']) 
+                        # st.rerun()
+                        pass
+                else:
+                    st.write("*(Me)*")
+
+            st.write("---")
     else:
         st.info("Belum ada user yang terdaftar di database.")
 
