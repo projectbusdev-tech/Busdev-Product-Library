@@ -611,7 +611,14 @@ def show_user_management_page():
     st.title("👥 User Management & Role Control")
     st.write("Kelola hak akses dan persetujuan akun karyawan di sini.")
     
-    # Load data terbaru
+    # 1. Identifikasi Super Admin dari Secrets
+    # Ini adalah daftar email yang tidak boleh diubah melalui UI
+    try:
+        super_admin_emails = [admin['email'] for admin in st.secrets.get("admin_credentials", [])]
+    except Exception:
+        super_admin_emails = []
+    
+    # Load data terbaru dari Google Sheets
     users_df = load_registered_users()
     
     if not users_df.empty:
@@ -625,63 +632,84 @@ def show_user_management_page():
 
         # Loop setiap user
         for index, row in users_df.iterrows():
-            # Jika user ini adalah admin yang sedang login, kita beri proteksi agar tidak mengubah diri sendiri
-            is_self = (row['Username'] == st.session_state.username)
+            email_user = row['Username']
+            
+            # CEK PROTEKSI:
+            # - is_super_admin: email ada di secrets (Admin Utama)
+            # - is_self: admin yang sedang login saat ini
+            is_super_admin = email_user in super_admin_emails
+            is_self = (email_user == st.session_state.username)
+            
+            # Gabungkan logika proteksi: Jika dia Super Admin ATAU Dirinya Sendiri, maka kunci akses edit
+            is_protected = is_super_admin or is_self
             
             col1, col2, col3, col4 = st.columns([2, 1.5, 1.5, 1])
             
             with col1:
-                st.write(row['Username'])
-                if row['Verified']:
+                st.write(email_user)
+                if is_super_admin:
+                    st.caption("🛡️ **Super Admin (Protected)**")
+                elif is_self:
+                    st.caption("👤 **Current Admin (Me)**")
+                elif row['Verified']:
                     st.caption("✅ Verified")
                 else:
                     st.caption("❌ Unverified")
 
             with col2:
-                # Fitur Change Role
+                # Selectbox Role - Dinonaktifkan jika akun terproteksi
                 new_role = st.selectbox(
                     "Role",
                     options=["User", "Admin"],
                     index=0 if row['Role'] == "User" else 1,
-                    key=f"role_{row['Username']}",
+                    key=f"role_{email_user}",
                     label_visibility="collapsed",
-                    disabled=is_self
+                    disabled=is_protected
                 )
 
             with col3:
-                # Fitur Approval (Change Status)
+                # Selectbox Status - Dinonaktifkan jika akun terproteksi
+                status_options = ["Pending", "Active", "Inactive"]
+                current_status = row['ApprovalStatus'] if row['ApprovalStatus'] in status_options else "Active"
+                
                 new_status = st.selectbox(
                     "Status",
-                    options=["Pending", "Active", "Inactive"],
-                    index=["Pending", "Active", "Inactive"].index(row['ApprovalStatus']),
-                    key=f"stat_{row['Username']}",
+                    options=status_options,
+                    index=status_options.index(current_status),
+                    key=f"stat_{email_user}",
                     label_visibility="collapsed",
-                    disabled=is_self
+                    disabled=is_protected
                 )
 
             with col4:
-                # Tombol simpan untuk baris ini
-                if not is_self:
-                    if st.button("Save", key=f"save_{row['Username']}"):
-                        # Update dataframe
+                # Tombol Save dan Delete hanya muncul jika akun TIDAK terproteksi
+                if not is_protected:
+                    if st.button("Save", key=f"save_{email_user}"):
+                        # Update dataframe di memori
                         users_df.at[index, 'Role'] = new_role
                         users_df.at[index, 'ApprovalStatus'] = new_status
                         
+                        # Kirim update ke Google Sheets
                         if update_user_gsheet(users_df):
-                            st.success(f"Update {row['Username']} Berhasil!")
+                            st.success(f"Update {email_user} Berhasil!")
                             st.rerun()
                     
-                    if st.button("Delete", key=f"del_{row['Username']}", type="secondary"):
-                        # Logika delete yang sudah Anda miliki sebelumnya
-                        # delete_user_gsheet(row['Username']) 
+                    if st.button("Delete", key=f"del_{email_user}", type="secondary"):
+                        # Pastikan Anda memiliki fungsi delete_user_gsheet yang sudah didefinisikan
+                        # delete_user_gsheet(email_user)
                         # st.rerun()
-                        pass
+                        st.warning("Fungsi hapus perlu dikonfirmasi.")
                 else:
-                    st.write("*(Me)*")
+                    # Menampilkan label penanda bahwa akun ini tidak bisa diedit di UI
+                    if is_super_admin:
+                        st.write("🔒 *Locked*")
+                    else:
+                        st.write("*(Me)*")
 
             st.write("---")
     else:
         st.info("Belum ada user yang terdaftar di database.")
+
 
 # --- HELPER FUNCTIONS ---
 def custom_metric(label, value, sub_value):
