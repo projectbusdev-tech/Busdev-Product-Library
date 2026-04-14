@@ -614,7 +614,7 @@ def show_user_management_page():
     # 1. Identifikasi Super Admin dari Secrets
     # Ini adalah daftar email yang tidak boleh diubah melalui UI
     try:
-        super_admin_emails = [admin['email'] for admin in st.secrets.get("admin_credentials", [])]
+        super_admin_emails = [admin['admin'] for admin in st.secrets.get("admin_credentials", [])]
     except Exception:
         super_admin_emails = []
     
