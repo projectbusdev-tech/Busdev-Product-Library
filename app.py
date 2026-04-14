@@ -611,12 +611,12 @@ def show_user_management_page():
     st.title("👥 User Management & Role Control")
     st.write("Kelola hak akses dan persetujuan akun karyawan di sini.")
     
-    # 1. Identifikasi Super Admin dari Secrets
-    # Ini adalah daftar email yang tidak boleh diubah melalui UI
+    # 1. Identifikasi Super Admin dari Secrets (Format Dictionary Tunggal)
     try:
-        super_admin_emails = [admin['admin'] for admin in st.secrets.get("admin_credentials", [])]
+        # Mengambil username admin dari secrets
+        super_admin_username = st.secrets["admin_credentials"]["username"]
     except Exception:
-        super_admin_emails = []
+        super_admin_username = None
     
     # Load data terbaru dari Google Sheets
     users_df = load_registered_users()
@@ -635,12 +635,12 @@ def show_user_management_page():
             email_user = row['Username']
             
             # CEK PROTEKSI:
-            # - is_super_admin: email ada di secrets (Admin Utama)
-            # - is_self: admin yang sedang login saat ini
-            is_super_admin = email_user in super_admin_emails
+            # - is_super_admin: Username cocok dengan yang ada di secrets
+            # - is_self: Email cocok dengan admin yang sedang login saat ini
+            is_super_admin = (email_user == super_admin_username)
             is_self = (email_user == st.session_state.username)
             
-            # Gabungkan logika proteksi: Jika dia Super Admin ATAU Dirinya Sendiri, maka kunci akses edit
+            # Jika dia Super Admin ATAU Dirinya Sendiri, maka kunci akses edit
             is_protected = is_super_admin or is_self
             
             col1, col2, col3, col4 = st.columns([2, 1.5, 1.5, 1])
@@ -657,7 +657,6 @@ def show_user_management_page():
                     st.caption("❌ Unverified")
 
             with col2:
-                # Selectbox Role - Dinonaktifkan jika akun terproteksi
                 new_role = st.selectbox(
                     "Role",
                     options=["User", "Admin"],
@@ -668,9 +667,9 @@ def show_user_management_page():
                 )
 
             with col3:
-                # Selectbox Status - Dinonaktifkan jika akun terproteksi
                 status_options = ["Pending", "Active", "Inactive"]
-                current_status = row['ApprovalStatus'] if row['ApprovalStatus'] in status_options else "Active"
+                # Pastikan status yang dibaca ada di dalam opsi, jika tidak default ke Pending
+                current_status = row['ApprovalStatus'] if row['ApprovalStatus'] in status_options else "Pending"
                 
                 new_status = st.selectbox(
                     "Status",
@@ -682,29 +681,16 @@ def show_user_management_page():
                 )
 
             with col4:
-                # Tombol Save dan Delete hanya muncul jika akun TIDAK terproteksi
                 if not is_protected:
                     if st.button("Save", key=f"save_{email_user}"):
-                        # Update dataframe di memori
                         users_df.at[index, 'Role'] = new_role
                         users_df.at[index, 'ApprovalStatus'] = new_status
                         
-                        # Kirim update ke Google Sheets
                         if update_user_gsheet(users_df):
                             st.success(f"Update {email_user} Berhasil!")
                             st.rerun()
-                    
-                    if st.button("Delete", key=f"del_{email_user}", type="secondary"):
-                        # Pastikan Anda memiliki fungsi delete_user_gsheet yang sudah didefinisikan
-                        # delete_user_gsheet(email_user)
-                        # st.rerun()
-                        st.warning("Fungsi hapus perlu dikonfirmasi.")
                 else:
-                    # Menampilkan label penanda bahwa akun ini tidak bisa diedit di UI
-                    if is_super_admin:
-                        st.write("🔒 *Locked*")
-                    else:
-                        st.write("*(Me)*")
+                    st.write("🔒 *Locked*")
 
             st.write("---")
     else:
