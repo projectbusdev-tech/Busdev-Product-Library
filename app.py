@@ -627,8 +627,11 @@ def login_screen():
                         st.error("Invalid Username or Password")
         
         st.write("---")
-        if st.button("Sign Up"):
-            signup_dialog()
+        b1, b2 = st.columns(2)
+        with b1:
+            if st.button("Sign Up", use_container_width=True): signup_dialog()
+        with b2:
+            if st.button("Change Password", use_container_width=True): change_password_dialog()
 
 def load_registered_users():
     try:
