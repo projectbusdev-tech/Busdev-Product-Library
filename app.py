@@ -686,22 +686,26 @@ def show_user_management_page():
     users_df = load_registered_users()
 
     if not users_df.empty:
-        # --- FITUR SEARCH BAR ---
+        # --- IMPLEMENTASI LIVE SEARCH ---
+        # Setiap kali pengguna mengetik di sini, Streamlit akan otomatis rerun
         search_query = st.text_input(
-            "🔍 Cari Email User", 
-            placeholder="Masukkan email untuk mencari...",
-            help="Ketik email user untuk memfilter daftar di bawah"
+            "🔍 Live Search User", 
+            placeholder="Ketik email atau username...",
+            help="Daftar di bawah akan terfilter otomatis saat Anda mengetik."
         ).strip().lower()
 
-    # Filter dataframe berdasarkan query pencarian
+        # Proses Filtering Data secara 'Live'
         if search_query:
-            filtered_df = users_df[users_df['Username'].str.lower().str.contains(search_query)]
+            filtered_df = users_df[
+                users_df['Username'].str.lower().str.contains(search_query, na=False) |
+                users_df['Role'].str.lower().str.contains(search_query, na=False)
+            ]
         else:
             filtered_df = users_df
 
-        # Tampilkan jumlah hasil
+        # Menampilkan indikator jumlah hasil
         if search_query:
-            st.caption(f"Menampilkan {len(filtered_df)} hasil pencarian.")
+            st.caption(f"Menemukan {len(filtered_df)} user yang cocok dengan '{search_query}'")
 
         # Header Tabel
         h1, h2, h3, h4 = st.columns([2, 1.5, 1.5, 1])
