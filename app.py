@@ -288,6 +288,7 @@ def signup_dialog():
             updated_df = pd.concat([users_df, new_user], ignore_index=True)
             if update_user_gsheet(updated_df):
                 st.success("Pendaftaran berhasil! Tunggu approval admin.")
+                st.balloons()
                 st.rerun()
 
 # --- DIALOG CHANGE PASSWORD ---
