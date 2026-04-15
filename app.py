@@ -262,7 +262,7 @@ def signup_dialog():
     
     if st.button("Daftar", use_container_width=True):
         if not new_email.endswith("@traknus.co.id"):
-            st.error("Harus menggunakan email korporat.")
+            st.error("Harus menggunakan email @traknus.co.id.")
             return
         
         valid, msg = validate_password(new_pass)
@@ -278,18 +278,12 @@ def signup_dialog():
         if new_email in users_df['Username'].values:
             st.error("Email sudah terdaftar.")
         else:
-            new_user = pd.DataFrame([{
-                "Username": new_email,
-                "Password": new_pass,
-                "Role": "User",
-                "Verified": False,
-                "ApprovalStatus": "Pending"
-            }])
-            updated_df = pd.concat([users_df, new_user], ignore_index=True)
-            if update_user_gsheet(updated_df):
-                st.success("Pendaftaran berhasil! Tunggu approval admin.")
+            success, msg = save_new_user(email_input, password_input)
+            if success:
+                st.success(msg)
                 st.balloons()
-                st.rerun()
+            else:
+                st.warning(msg)
 
 # --- DIALOG CHANGE PASSWORD ---
 
@@ -706,7 +700,7 @@ def show_user_management_page():
             # Jika dia Super Admin ATAU Dirinya Sendiri, maka kunci akses edit
             is_protected = is_super_admin or is_self
             
-            col1, col2, col3, col4 = st.columns([2, 1.5, 1.5, 1])
+            col1, col2, col3, col4, col5 = st.columns([2, 1.5, 1.5, 1, 1])
             
             with col1:
                 st.write(email_user)
@@ -754,6 +748,15 @@ def show_user_management_page():
                             st.rerun()
                 else:
                     st.write("🔒 *Locked*")
+
+            with col5:
+                if row['Username'] != st.session_state.username:
+                    if st.button("Delete", key=f"del_{row['Username']}"):
+                        delete_user_gsheet(row['Username'])
+                        st.success(f"User {row['Username']} berhasil dihapus permanen!")
+                        st.rerun()
+                else:
+                    st.write("(Current Admin)")
 
             st.write("---")
     else:
