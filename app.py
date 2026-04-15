@@ -322,6 +322,7 @@ def change_password_dialog():
                     users_df.at[idx, 'Password'] = new_password
                     if update_user_gsheet(users_df):
                         st.success("Password berhasil diperbarui!")
+                        st.balloons()
                         st.rerun()
         else:
             st.error("Email atau Password Lama salah.")
