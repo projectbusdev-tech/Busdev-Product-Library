@@ -684,8 +684,25 @@ def show_user_management_page():
     
     # Load data terbaru dari Google Sheets
     users_df = load_registered_users()
-    
+
     if not users_df.empty:
+        # --- FITUR SEARCH BAR ---
+        search_query = st.text_input(
+            "🔍 Cari Email User", 
+            placeholder="Masukkan email untuk mencari...",
+            help="Ketik email user untuk memfilter daftar di bawah"
+        ).strip().lower()
+
+    # Filter dataframe berdasarkan query pencarian
+        if search_query:
+            filtered_df = users_df[users_df['Username'].str.lower().str.contains(search_query)]
+        else:
+            filtered_df = users_df
+
+        # Tampilkan jumlah hasil
+        if search_query:
+            st.caption(f"Menampilkan {len(filtered_df)} hasil pencarian.")
+
         # Header Tabel
         h1, h2, h3, h4 = st.columns([2, 1.5, 1.5, 1])
         h1.write("**Email**")
