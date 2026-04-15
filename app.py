@@ -4,6 +4,7 @@ import os
 import re
 import urllib.parse
 import io
+import time
 import plotly.express as px
 from datetime import datetime, timedelta
 from streamlit_gsheets import GSheetsConnection
@@ -288,6 +289,7 @@ def signup_dialog():
             updated_df = pd.concat([users_df, new_user], ignore_index=True)
             if update_user_gsheet(updated_df):
                 st.success("Pendaftaran berhasil! Tunggu approval admin.")
+                time.sleep(2)
                 st.rerun()
                 
 # --- DIALOG CHANGE PASSWORD ---
