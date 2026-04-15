@@ -244,30 +244,88 @@ def show_admin_approval_page():
                         st.success(f"Akun {row['Username']} diaktifkan!")
                         st.rerun()
 
+def validate_password(password):
+    """Memastikan password minimal 6 karakter, mengandung huruf dan angka."""
+    if len(password) < 6:
+        return False, "Password minimal harus 6 karakter."
+    if not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
+        return False, "Password harus mengandung kombinasi huruf dan angka."
+    return True, ""
+
 # --- DIALOG SIGN UP ---
 @st.dialog("Sign Up")
 def signup_dialog():
-    st.write("Daftar akun baru untuk mengakses Product Library.")
-    email_input = st.text_input("Email (@traknus.co.id)").strip()
-    password_input = st.text_input("Buat Password", type="password").strip()
-    confirm_password = st.text_input("Konfirmasi Password", type="password").strip()
+    st.write("Daftarkan akun baru Anda.")
+    new_email = st.text_input("Email (@traknus.co.id)").strip()
+    new_pass = st.text_input("Password", type="password").strip()
+    conf_pass = st.text_input("Konfirmasi Password", type="password").strip()
     
-    if st.button("Daftar Sekarang"):
-        if not email_input or not password_input:
-            st.error("Email dan Password tidak boleh kosong.")
-        elif not email_input.endswith("@traknus.co.id"):
-            st.error("Maaf, hanya email @traknus.co.id yang diperbolehkan.")
-        elif password_input != confirm_password:
-            st.error("Konfirmasi password tidak cocok.")
-        elif len(password_input) < 6:
-            st.warning("Password minimal 6 karakter.")
+    if st.button("Daftar", use_container_width=True):
+        if not new_email.endswith("@traknus.co.id"):
+            st.error("Harus menggunakan email korporat.")
+            return
+        
+        valid, msg = validate_password(new_pass)
+        if not valid:
+            st.error(msg)
+            return
+
+        if new_pass != conf_pass:
+            st.error("Password tidak cocok.")
+            return
+            
+        users_df = load_registered_users()
+        if new_email in users_df['Username'].values:
+            st.error("Email sudah terdaftar.")
         else:
-            success, msg = save_new_user(email_input, password_input)
-            if success:
-                st.success(msg)
-                st.balloons()
+            new_user = pd.DataFrame([{
+                "Username": new_email,
+                "Password": new_pass,
+                "Role": "User",
+                "Verified": False,
+                "ApprovalStatus": "Pending"
+            }])
+            updated_df = pd.concat([users_df, new_user], ignore_index=True)
+            if update_user_gsheet(updated_df):
+                st.success("Pendaftaran berhasil! Tunggu approval admin.")
+                st.rerun()
+
+# --- DIALOG CHANGE PASSWORD ---
+
+@st.dialog("Change Password")
+def change_password_dialog():
+    st.write("Masukkan detail akun untuk memperbarui password.")
+    email_input = st.text_input("Email Terdaftar").strip()
+    old_password = st.text_input("Password Lama", type="password").strip()
+    new_password = st.text_input("Password Baru", type="password").strip()
+    confirm_new = st.text_input("Konfirmasi Password Baru", type="password").strip()
+    
+    if st.button("Perbarui Password", use_container_width=True):
+        if not email_input or not old_password or not new_password:
+            st.error("Semua field wajib diisi.")
+            return
+
+        users_df = load_registered_users()
+        # Mencocokkan data
+        mask = (users_df['Username'] == email_input) & (users_df['Password'] == old_password)
+        
+        if not users_df[mask].empty:
+            if new_password != confirm_new:
+                st.error("Konfirmasi password baru tidak cocok.")
             else:
-                st.warning(msg)
+                is_valid, msg = validate_password(new_password)
+                if not is_valid:
+                    st.error(msg)
+                else:
+                    idx = users_df[mask].index[0]
+                    users_df.at[idx, 'Password'] = new_password
+                    if update_user_gsheet(users_df):
+                        st.success("Password berhasil diperbarui!")
+                        st.rerun()
+        else:
+            st.error("Email atau Password Lama salah.")
+
+
 
 def convert_df_to_excel(df):
     output = io.BytesIO()
