@@ -289,7 +289,7 @@ def signup_dialog():
             updated_df = pd.concat([users_df, new_user], ignore_index=True)
             if update_user_gsheet(updated_df):
                 st.success("Pendaftaran berhasil! Tunggu approval admin.")
-                time.sleep(2)
+                time.sleep(1)
                 st.rerun()
                 
 # --- DIALOG CHANGE PASSWORD ---
@@ -323,7 +323,7 @@ def change_password_dialog():
                     users_df.at[idx, 'Password'] = new_password
                     if update_user_gsheet(users_df):
                         st.success("Password berhasil diperbarui!")
-                        st.balloons()
+                        time.sleep(1)
                         st.rerun()
         else:
             st.error("Email atau Password Lama salah.")
@@ -761,6 +761,7 @@ def show_user_management_page():
                     if st.button("Delete", key=f"del_{row['Username']}"):
                         delete_user_gsheet(row['Username'])
                         st.success(f"User {row['Username']} berhasil dihapus permanen!")
+                        time.sleep(1)
                         st.rerun()
                 else:
                     st.write("(Current Admin)")
