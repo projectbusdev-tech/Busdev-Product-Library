@@ -278,13 +278,18 @@ def signup_dialog():
         if new_email in users_df['Username'].values:
             st.error("Email sudah terdaftar.")
         else:
-            success, msg = save_new_user(email_input, password_input)
-            if success:
-                st.success(msg)
-                st.balloons()
-            else:
-                st.warning(msg)
-
+            new_user = pd.DataFrame([{
+                "Username": new_email,
+                "Password": new_pass,
+                "Role": "User",
+                "Verified": True,
+                "ApprovalStatus": "Pending"
+            }])
+            updated_df = pd.concat([users_df, new_user], ignore_index=True)
+            if update_user_gsheet(updated_df):
+                st.success("Pendaftaran berhasil! Tunggu approval admin.")
+                st.rerun()
+                
 # --- DIALOG CHANGE PASSWORD ---
 
 @st.dialog("Change Password")
