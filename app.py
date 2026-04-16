@@ -844,13 +844,13 @@ def click_detail(row):
 # --- LOAD DATA FUNCTION ---
 @st.cache_data(ttl=3600)
 def load_data():
-    # 1. Panggil koneksi dengan nama yang tepat sesuai [connections.NAMA]
-    conn_products = st.connection("productdatagsheets", type="gsheets")
+    # Panggil koneksi khusus untuk data produk
+    conn_prod = st.connection("productdatagsheets", type=GSheetsConnection)
     
-    # 2. Gunakan conn_products untuk membaca data
-    df = conn_products.read(worksheet="ProductDataMain", ttl=3600)
+    # Membaca data dari worksheet ProductDataMain
+    df = conn_prod.read(worksheet="ProductDataMain", ttl=3600)
     
-    # 3. Pembersihan data
+    # Pembersihan data
     df.columns = df.columns.str.strip() 
     if 'Product_type' in df.columns:
         df['Product_type'] = df['Product_type'].astype(str).str.strip()
