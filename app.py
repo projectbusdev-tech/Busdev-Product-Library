@@ -13,9 +13,9 @@ from streamlit_gsheets import GSheetsConnection
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Product Recommendation Library", layout="wide")
 
-# --- DATABASE CONNECTION (GOOGLE SHEETS) ---
+# --- USER DATABASE CONNECTION (GOOGLE SHEETS) ---
 try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
+    conn = st.connection("userdbgsheets", type=GSheetsConnection)
 except Exception as e:
     st.error("Konfigurasi Secrets Google Sheets belum lengkap.")
     st.stop()
