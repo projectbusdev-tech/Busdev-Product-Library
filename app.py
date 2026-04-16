@@ -245,6 +245,18 @@ def show_admin_approval_page():
                         st.success(f"Akun {row['Username']} diaktifkan!")
                         st.rerun()
 
+                with col3:
+                    # Tombol REJECT (Menghapus Data)
+                    if st.button("Reject ❌", key=f"reject_{index}", type="secondary"):
+                        # Menghapus baris berdasarkan index
+                        users_df = users_df.drop(index)
+                        
+                        # Update Google Sheets dengan dataframe yang sudah dikurangi barisnya
+                        if update_user_gsheet(users_df):
+                            st.warning(f"Permintaan {row['Username']} telah ditolak dan dihapus.")
+                            time.sleep(1)
+                            st.rerun()
+
 def validate_password(password):
     """Memastikan password minimal 6 karakter, mengandung huruf dan angka."""
     if len(password) < 6:
