@@ -21,7 +21,7 @@ except Exception as e:
     st.stop()
 
 # --- GITHUB RAW URL CONFIGURATION ---
-GITHUB_RAW_BASE = "https://raw.githubusercontent.com/aldre-arch/TN-Product-Reccomendation/main/"
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/projectbusdev-tech/Busdev-Product-Library/main/"
 
 # --- CUSTOM CSS ---
 st.markdown("""
