@@ -234,7 +234,7 @@ def show_admin_approval_page():
     else:
         for index, row in pending_users.iterrows():
             with st.container(border=True):
-                col1, col2 = st.columns([3, 1])
+                col1, col2, col3 = st.columns([3, 1, 1])
                 with col1:
                     st.write(f"**Request dari:** {row['Username']}")
                     st.caption(f"Status Saat Ini: {row['ApprovalStatus']}")
