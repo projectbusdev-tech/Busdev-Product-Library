@@ -1424,6 +1424,15 @@ def main():
         res = apply_list_filter(res, 'Obstacle_List', selected_obstacles)
         res = apply_list_filter(res, 'Waste_Type_List', selected_wastes)
 
+        # ====================================================================
+        # [PERBAIKAN] DEFINISI FUNGSI DIPINDAH KE SINI AGAR BISA DIAKSES DI BAWAHNYA
+        # ====================================================================
+        def handle_view_details(row, filters):
+            # 1. Jalankan logging filter (Pecah baris otomatis)
+            log_filter_to_gsheet(st.session_state.username, filters)
+            # 2. Jalankan fungsi buka detail yang sudah Anda miliki
+            click_detail(row)
+
         # ==========================================
         # --- MULAI TAMBAHAN KODE PRODUK POPULER ---
         # ==========================================
@@ -1434,7 +1443,6 @@ def main():
         popular_specs = ["ICM 42-60", "ECOSMILE", "GIAMPY", "S34", "BEETLE", "PHANTAS", "OMNIE"]
         
         # Ambil data dari dataframe master (df), bukan res, agar selalu muncul terlepas dari filter
-        # Gunakan drop_duplicates agar jika ada beberapa row dengan spek sama, hanya muncul 1
         popular_df = df[df['General Specifications'].isin(popular_specs)].drop_duplicates(subset=['General Specifications']).copy()
         
         if not popular_df.empty:
@@ -1442,7 +1450,7 @@ def main():
             popular_df['General Specifications'] = pd.Categorical(popular_df['General Specifications'], categories=popular_specs, ordered=True)
             popular_df = popular_df.sort_values('General Specifications')
             
-            # Tampilkan dalam grid 4 kolom (atau sesuaikan dengan kebutuhan)
+            # Tampilkan dalam grid 4 kolom
             pop_cols = st.columns(4)
             for idx, (index, row) in enumerate(popular_df.iterrows()):
                 with pop_cols[idx % 4]:
