@@ -1424,6 +1424,55 @@ def main():
         res = apply_list_filter(res, 'Obstacle_List', selected_obstacles)
         res = apply_list_filter(res, 'Waste_Type_List', selected_wastes)
 
+        # ==========================================
+        # --- MULAI TAMBAHAN KODE PRODUK POPULER ---
+        # ==========================================
+        st.divider()
+        st.subheader("⭐ Popular Products")
+        
+        # Daftar produk populer berdasarkan General Specifications
+        popular_specs = ["ICM 42-60", "ECOSMILE", "GIAMPY", "S34", "BEETLE", "PHANTAS", "OMNIE"]
+        
+        # Ambil data dari dataframe master (df), bukan res, agar selalu muncul terlepas dari filter
+        # Gunakan drop_duplicates agar jika ada beberapa row dengan spek sama, hanya muncul 1
+        popular_df = df[df['General Specifications'].isin(popular_specs)].drop_duplicates(subset=['General Specifications']).copy()
+        
+        if not popular_df.empty:
+            # Mengurutkan tampilan sesuai urutan pada list popular_specs
+            popular_df['General Specifications'] = pd.Categorical(popular_df['General Specifications'], categories=popular_specs, ordered=True)
+            popular_df = popular_df.sort_values('General Specifications')
+            
+            # Tampilkan dalam grid 4 kolom (atau sesuaikan dengan kebutuhan)
+            pop_cols = st.columns(4)
+            for idx, (index, row) in enumerate(popular_df.iterrows()):
+                with pop_cols[idx % 4]:
+                    with st.container(border=True):
+                        # Menampilkan gambar dan info produk
+                        st.image(get_image_path(row['General Specifications']))
+                        st.markdown(f"**{row['Brand']}**")
+                        st.caption(row.get('General Specifications', '-'))
+                        
+                        # Dummy filter parameter untuk kebutuhan logging saat View Details di-klik
+                        pop_filters = {
+                            'brand': 'Popular_Direct_Click', 'product_type': [], 'environment': [], 
+                            'floor_type': [], 'area': 0, 'slope': 0, 'aisle_cat': [], 
+                            'obstacle': [], 'waste_type': []
+                        }
+                        
+                        # Tombol View Details
+                        st.button(
+                            "View Details", 
+                            key=f"btn_pop_{index}_{row['General Specifications']}", 
+                            on_click=handle_view_details, 
+                            args=(row, pop_filters)
+                        )
+        else:
+            st.info("Data produk populer belum tersedia di database.")
+        
+        # ==========================================
+        # --- AKHIR TAMBAHAN KODE PRODUK POPULER ---
+        # ==========================================
+        
         st.divider()
         st.subheader(f"Results: {len(res)} Products Found")
 
